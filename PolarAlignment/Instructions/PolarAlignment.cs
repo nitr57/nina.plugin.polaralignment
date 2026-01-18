@@ -150,6 +150,7 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
             }
             Gain = profileService.ActiveProfile.PlateSolveSettings.Gain;
             Offset = -1;
+            Binning = new BinningMode(profileService.ActiveProfile.PlateSolveSettings.Binning, profileService.ActiveProfile.PlateSolveSettings.Binning);
             ExposureTime = profileService.ActiveProfile.PlateSolveSettings.ExposureTime;
 
             EastDirection = Properties.Settings.Default.DefaultEastDirection;
@@ -162,7 +163,6 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
 
             if (Northern) {
                 Coordinates = new InputTopocentricCoordinates(new TopocentricCoordinates(Angle.ByDegree(Properties.Settings.Default.DefaultAzimuthOffset), Latitude + Angle.ByDegree(Properties.Settings.Default.DefaultAltitudeOffset), Latitude, Longitude, profileService.ActiveProfile.AstrometrySettings.Elevation, new SystemDateTime()));
-                ;
             } else {
                 Coordinates = new InputTopocentricCoordinates(new TopocentricCoordinates(Angle.ByDegree(180 + Properties.Settings.Default.DefaultAzimuthOffset), Angle.ByDegree(Math.Abs(Latitude.Degree)) + Angle.ByDegree(Properties.Settings.Default.DefaultAltitudeOffset), Latitude, Longitude, profileService.ActiveProfile.AstrometrySettings.Elevation, new SystemDateTime()));
             }

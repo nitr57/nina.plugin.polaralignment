@@ -1,5 +1,8 @@
 ﻿# Changelog
 
+## Version 2.2.4.3
+- Polar alignment tab in imaging now correctly pulls the binning settings from the plate solve settings on startup
+
 ## Version 2.2.4.2
 - When polar alignment is started, guiding will be stopped automatically
 

@@ -451,6 +451,8 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                             Stop tracking when done: {Properties.Settings.Default.StopTrackingWhenDone}
                             Auto pause: {Properties.Settings.Default.AutoPause}
                             Avalon UPA: {Properties.Settings.Default.UseAvalonPolarAlignmentSystem}
+                            OAPA: {Properties.Settings.Default.UseOAPAPolarAlignmentSystem}
+                            Selected System: {Properties.Settings.Default.SelectedPolarAlignmentSystem}
                             Automated adjustments: {Properties.Settings.Default.DoAutomatedAdjustments}
                         """);
 
@@ -548,10 +550,10 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
 
                     TPAPAVM.ActivateFourthStep();
 
-                    if (TPAPAVM.UniversalPolarAlignmentVM.UsePolarAlignmentSystem) {
-                        await TPAPAVM.UniversalPolarAlignmentVM.Connect();
-                        if (TPAPAVM.UniversalPolarAlignmentVM.DoAutomatedAdjustments && !TPAPAVM.UniversalPolarAlignmentVM.Connected) {
-                            throw new SequenceEntityFailedException("Unable to connect to Universal Polar Alignment system. Cancelling polar alignment routine as automated adjustments are impossible.");
+                    if (TPAPAVM.ActiveAlignmentSystemVM != null) {
+                        await TPAPAVM.ActiveAlignmentSystemVM.Connect();
+                        if (TPAPAVM.ActiveAlignmentSystemVM.DoAutomatedAdjustments && !TPAPAVM.ActiveAlignmentSystemVM.Connected) {
+                            throw new SequenceEntityFailedException("Unable to connect to Polar Alignment system. Cancelling polar alignment routine as automated adjustments are impossible.");
                         }
                     }
 
@@ -931,7 +933,7 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                 }
             }
 
-            if (Settings.Default.UseAvalonPolarAlignmentSystem && Settings.Default.DoAutomatedAdjustments && AlignmentTolerance == 0) {
+            if (PolarAlignmentPlugin.ActiveAlignmentSystemVM != null && PolarAlignmentPlugin.ActiveAlignmentSystemVM?.DoAutomatedAdjustments == true && AlignmentTolerance == 0) {
                 i.Add("Automated adjustments are enabled, but polar alignment tolerance is set to zero. Please set an alignment tolerance!");
             }
 

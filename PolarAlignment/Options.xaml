@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:avalon="clr-namespace:NINA.Plugins.PolarAlignment.Avalon"
+    xmlns:oapa="clr-namespace:NINA.Plugins.PolarAlignment.OAPA"
     xmlns:behavior="clr-namespace:NINA.WPF.Base.Behaviors;assembly=NINA.WPF.Base"
     xmlns:converters="clr-namespace:NINA.Plugins.PolarAlignment.Converters"
     xmlns:coreconverters="clr-namespace:NINA.Core.Utility.Converters;assembly=NINA.Core"
@@ -292,69 +293,77 @@
                     Grid.Row="17"
                     Margin="0,5,0,0"
                     VerticalAlignment="Center"
-                    Text="Use Avalon Polar Alignment System?" />
-                <CheckBox
+                    Text="Polar Alignment System" />
+                <ComboBox
                     Grid.Row="17"
                     Grid.Column="1"
                     MinWidth="80"
                     Margin="0,5,0,0"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
-                    IsChecked="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem}" />
+                    SelectedValue="{Binding SelectedPolarAlignmentSystem}">
+                    <ComboBox.ItemsSource>
+                        <x:Array Type="{x:Type local:PolarAlignmentSystemType}">
+                            <local:PolarAlignmentSystemType>None</local:PolarAlignmentSystemType>
+                            <local:PolarAlignmentSystemType>UPAS</local:PolarAlignmentSystemType>
+                            <local:PolarAlignmentSystemType>OAPA</local:PolarAlignmentSystemType>
+                        </x:Array>
+                    </ComboBox.ItemsSource>
+                </ComboBox>
                 <TextBlock
-                    Grid.Row="18"
+                    Grid.Row="19"
                     Margin="0,5,0,0"
                     VerticalAlignment="Center"
                     Text="Reverse Azimuth Axis?"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <CheckBox
-                    Grid.Row="18"
+                    Grid.Row="19"
                     Grid.Column="1"
                     MinWidth="80"
                     Margin="0,5,0,0"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
-                    IsChecked="{Binding UniversalPolarAlignmentVM.ReverseAzimuth}"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    IsChecked="{Binding ActiveSystem.ReverseAzimuth}"
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <TextBlock
-                    Grid.Row="19"
+                    Grid.Row="20"
                     Margin="0,5,0,0"
                     VerticalAlignment="Center"
                     Text="Reverse Altitude Axis?"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <CheckBox
-                    Grid.Row="19"
+                    Grid.Row="20"
                     Grid.Column="1"
                     MinWidth="80"
                     Margin="0,5,0,0"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
-                    IsChecked="{Binding UniversalPolarAlignmentVM.ReverseAltitude}"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    IsChecked="{Binding ActiveSystem.ReverseAltitude}"
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <TextBlock
-                    Grid.Row="20"
+                    Grid.Row="21"
                     Margin="0,5,0,0"
                     VerticalAlignment="Center"
                     Text="Azimuth backlash compensation"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <ninactrl:UnitTextBox
-                    Grid.Row="20"
+                    Grid.Row="21"
                     Grid.Column="1"
                     MinWidth="80"
                     Margin="0,5,0,0"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
-                    Text="{Binding UniversalPolarAlignmentVM.XBacklashCompensation}"
+                    Text="{Binding ActiveSystem.XBacklashCompensation}"
                     Unit="steps"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <TextBlock
-                    Grid.Row="21"
+                    Grid.Row="22"
                     Margin="0,5,0,0"
                     VerticalAlignment="Center"
                     Text="Do automated adjustments?"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <StackPanel
-                    Grid.Row="21"
+                    Grid.Row="22"
                     Grid.Column="1"
                     Orientation="Horizontal">
                     <CheckBox
@@ -362,49 +371,49 @@
                         Margin="0,5,0,0"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
-                        IsChecked="{Binding UniversalPolarAlignmentVM.DoAutomatedAdjustments}"
-                        Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                    <Grid Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        IsChecked="{Binding ActiveSystem.DoAutomatedAdjustments}"
+                        Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <Grid Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock
                             Margin="5,5,0,0"
                             VerticalAlignment="Center"
                             FontStyle="Italic"
                             Text="This option is under test and experimental"
-                            Visibility="{Binding UniversalPolarAlignmentVM.DoAutomatedAdjustments, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            Visibility="{Binding ActiveSystem.DoAutomatedAdjustments, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     </Grid>
                 </StackPanel>
-                <Grid Grid.Row="22" Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid Grid.Row="23" Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBlock
                         Margin="0,5,0,0"
                         VerticalAlignment="Center"
                         Text="Automated adjustment settle time"
-                        Visibility="{Binding UniversalPolarAlignmentVM.DoAutomatedAdjustments, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        Visibility="{Binding ActiveSystem.DoAutomatedAdjustments, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 </Grid>
                 <Grid
-                    Grid.Row="22"
+                    Grid.Row="23"
                     Grid.Column="1"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <ninactrl:UnitTextBox
                         MinWidth="80"
                         Margin="5,5,0,0"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
-                        Text="{Binding UniversalPolarAlignmentVM.AutomatedAdjustmentSettleTime}"
+                        Text="{Binding ActiveSystem.AutomatedAdjustmentSettleTime}"
                         Unit="s"
-                        Visibility="{Binding UniversalPolarAlignmentVM.DoAutomatedAdjustments, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        Visibility="{Binding ActiveSystem.DoAutomatedAdjustments, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 </Grid>
                 <Grid
-                    Grid.Row="23"
+                    Grid.Row="24"
                     Grid.ColumnSpan="2"
-                    Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    Visibility="{Binding IsSystemSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBlock
                         Margin="0,5,0,0"
                         FontStyle="Italic"
                         Text="Make sure to set your gear ratio to achieve 1 arcminute per step for each axis!"
-                        Visibility="{Binding UniversalPolarAlignmentVM.DoAutomatedAdjustments, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        Visibility="{Binding ActiveSystem.DoAutomatedAdjustments, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 </Grid>
                 <Button
-                    Grid.Row="24"
+                    Grid.Row="25"
                     Margin="0,20,0,0"
                     Command="{Binding ResetSettingsCommand}">
                     <TextBlock
@@ -417,7 +426,7 @@
                 Grid.Row="1"
                 Margin="0,10,0,0"
                 Header="Avalon Polar Alignment System"
-                Visibility="{Binding UniversalPolarAlignmentVM.UsePolarAlignmentSystem, Converter={StaticResource BooleanToVisibilityConverter}}">
+                Visibility="{Binding IsUPASSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Grid Margin="0,10,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -432,6 +441,27 @@
                         <Button Command="{Binding DisconnectCommand}" Visibility="{Binding Connected, Converter={StaticResource BooleanToVisibilityConverter}}">Disconnect</Button>
                     </Grid>
                     <ContentPresenter Grid.Row="1" Content="{Binding UniversalPolarAlignmentVM}" />
+                </Grid>
+            </GroupBox>
+            <GroupBox
+                Grid.Row="2"
+                Margin="0,10,0,0"
+                Header="OAPA Polar Alignment System"
+                Visibility="{Binding IsOAPASelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <Grid DataContext="{Binding UniversalPolarAlignmentOAPAVM}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <Button Command="{Binding ConnectCommand}" Visibility="{Binding Connected, Converter={StaticResource InverseBooleanToVisibilityCollapsedConverter}}">Test Connect</Button>
+                        <Button Command="{Binding DisconnectCommand}" Visibility="{Binding Connected, Converter={StaticResource BooleanToVisibilityConverter}}">Disconnect</Button>
+                    </Grid>
+                    <ContentPresenter Grid.Row="1" Content="{Binding UniversalPolarAlignmentOAPAVM}" />
                 </Grid>
             </GroupBox>
 
@@ -1617,5 +1647,9 @@
                 </Grid>
             </GroupBox>
         </Grid>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type oapa:UniversalPolarAlignmentOAPAVM}">
+        <oapa:OAPAControlPanel />
     </DataTemplate>
 </ResourceDictionary>

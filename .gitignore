@@ -88,3 +88,9 @@ ClientBin/
 *.pfx
 *.publishsettings
 orleans.codegen.cs
+
+# Claude
+.claude/
+
+# Firmware (managed separately)
+firmware/

@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## Version 2.2.5.0
+- Replaced AAPA/Avalon checkboxes with a single ComboBox selector (None / UPAS / AAPA) per code review feedback
+- Common settings (reverse axes, backlash, automated adjustments) now displayed based on the selected system
+- Eliminated code duplication by extracting shared base classes and interfaces for polar alignment systems
+- Removed redundant UsePolarAlignmentSystem boolean in favor of enum-based selection
+
 ## Version 2.2.4.3
 - Polar alignment tab in imaging now correctly pulls the binning settings from the plate solve settings on startup
 

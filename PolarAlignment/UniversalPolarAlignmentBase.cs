@@ -11,7 +11,7 @@ namespace NINA.Plugins.PolarAlignment {
         private readonly SerialPort port;
 
         protected abstract string SystemName { get; }
-        protected virtual string NewLineSequence => "\r\n";
+        protected virtual string NewLineSequence => "\n";
         protected virtual int ScanReadTimeout => 1000;
         protected virtual int ScanWriteTimeout => 1000;
         protected virtual bool ClearBufferOnConnect => false;
@@ -19,6 +19,12 @@ namespace NINA.Plugins.PolarAlignment {
         protected abstract Regex GetStatusRegex();
 
         protected SerialPort Port => port;
+
+        private const float TargetPositionTolerance = 0.01f;
+        private const double MovementTimeoutFactor = 2d;
+        private static readonly TimeSpan MinimumMovementTimeout = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan MovementTimeoutGracePeriod = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan FallbackMovementTimeout = TimeSpan.FromSeconds(30);
 
         protected UniversalPolarAlignmentBase() {
             var comPorts = SerialPort.GetPortNames();
@@ -44,8 +50,7 @@ namespace NINA.Plugins.PolarAlignment {
                         }
 
                         serialPortToTest.WriteLine("?");
-                        var status = serialPortToTest.ReadLine();
-                        _ = serialPortToTest.ReadLine();
+                        var status = ReadStatusLine(serialPortToTest);
                         var match = GetStatusRegex().Match(status);
                         if (match.Success) {
                             port = serialPortToTest;
@@ -128,16 +133,16 @@ namespace NINA.Plugins.PolarAlignment {
                 Logger.Info($"Response: {ok}");
 
                 var startPos = checkProperty();
-                var timeout = TimeSpan.FromSeconds(30);
+                var timeout = CalculateMovementTimeout(startPos, target, speed);
                 var startTime = DateTime.Now;
                 var lastPos = startPos;
                 var stuckCount = 0;
 
-                while (Math.Abs(checkProperty() - target) > 0.01f) {
+                while (Math.Abs(checkProperty() - target) > TargetPositionTolerance) {
                     UpdateStatus();
                     var currentPos = checkProperty();
 
-                    if (Math.Abs(currentPos - lastPos) < 0.01f) {
+                    if (Math.Abs(currentPos - lastPos) < TargetPositionTolerance) {
                         stuckCount++;
                         if (stuckCount > 5) {
                             throw new TimeoutException($"Motor appears stuck at position {currentPos}. Target was {target}. Check hardware and endstops.");
@@ -148,7 +153,7 @@ namespace NINA.Plugins.PolarAlignment {
                     lastPos = currentPos;
 
                     if (DateTime.Now - startTime > timeout) {
-                        throw new TimeoutException($"Movement timeout after {timeout.TotalSeconds}s. Current: {currentPos}, Target: {target}");
+                        throw new TimeoutException($"Movement timeout after {timeout.TotalSeconds:N1}s. Current: {currentPos}, Target: {target}");
                     }
 
                     await Task.Delay(300, token);
@@ -197,16 +202,16 @@ namespace NINA.Plugins.PolarAlignment {
                 };
 
                 var startPos = checkProperty();
-                var timeout = TimeSpan.FromSeconds(30);
+                var timeout = CalculateMovementTimeout(startPos, target, speed);
                 var startTime = DateTime.Now;
                 var lastPos = startPos;
                 var stuckCount = 0;
 
-                while (Math.Abs(checkProperty() - target) > 0.01f) {
+                while (Math.Abs(checkProperty() - target) > TargetPositionTolerance) {
                     UpdateStatus();
                     var currentPos = checkProperty();
 
-                    if (Math.Abs(currentPos - lastPos) < 0.01f) {
+                    if (Math.Abs(currentPos - lastPos) < TargetPositionTolerance) {
                         stuckCount++;
                         if (stuckCount > 5) {
                             throw new TimeoutException($"Motor appears stuck at position {currentPos}. Target was {target}. Check hardware and endstops.");
@@ -217,7 +222,7 @@ namespace NINA.Plugins.PolarAlignment {
                     lastPos = currentPos;
 
                     if (DateTime.Now - startTime > timeout) {
-                        throw new TimeoutException($"Movement timeout after {timeout.TotalSeconds}s. Current: {currentPos}, Target: {target}");
+                        throw new TimeoutException($"Movement timeout after {timeout.TotalSeconds:N1}s. Current: {currentPos}, Target: {target}");
                     }
 
                     await Task.Delay(300, token);
@@ -227,10 +232,23 @@ namespace NINA.Plugins.PolarAlignment {
             }
         }
 
+        internal static TimeSpan CalculateMovementTimeout(float startPosition, float targetPosition, int speed) {
+            var distance = Math.Abs(targetPosition - startPosition);
+            if (distance <= TargetPositionTolerance) {
+                return MinimumMovementTimeout;
+            }
+            if (speed <= 0) {
+                return FallbackMovementTimeout;
+            }
+
+            var expectedSeconds = distance / speed * 60d;
+            var timeout = TimeSpan.FromSeconds(expectedSeconds * MovementTimeoutFactor) + MovementTimeoutGracePeriod;
+            return timeout > MinimumMovementTimeout ? timeout : MinimumMovementTimeout;
+        }
+
         private void UpdateStatus() {
             port.WriteLine("?");
-            var status = port.ReadLine();
-            port.ReadLine();
+            var status = ReadStatusLine(port);
 
             var match = GetStatusRegex().Match(status);
             if (match.Success) {
@@ -241,6 +259,17 @@ namespace NINA.Plugins.PolarAlignment {
             } else {
                 Logger.Error($"Failed to parse {SystemName} status: {status}");
             }
+        }
+
+        private static string ReadStatusLine(SerialPort serialPort) {
+            var status = serialPort.ReadLine();
+            if (string.IsNullOrWhiteSpace(status) ||
+                string.Equals(status.Trim(), "ok", StringComparison.OrdinalIgnoreCase)) {
+                status = serialPort.ReadLine();
+            } else {
+                _ = serialPort.ReadLine();
+            }
+            return status;
         }
 
         public async Task RefreshStatus(CancellationToken token) {

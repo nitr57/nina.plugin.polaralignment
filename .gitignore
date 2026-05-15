@@ -94,3 +94,6 @@ orleans.codegen.cs
 
 # Firmware (managed separately)
 firmware/
+/.dotnet-cli
+/.oracle-venv
+/.oracle-deps

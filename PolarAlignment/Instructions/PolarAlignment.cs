@@ -448,6 +448,7 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                             Offset: {Offset}
                             Initial search radius: {SearchRadius}
                             Refraction adjustment: {Properties.Settings.Default.RefractionAdjustment}
+                            Continuous error estimator: {Properties.Settings.Default.UseContinuousErrorEstimator}
                             Stop tracking when done: {Properties.Settings.Default.StopTrackingWhenDone}
                             Auto pause: {Properties.Settings.Default.AutoPause}
                             Avalon UPA: {Properties.Settings.Default.UseAvalonPolarAlignmentSystem}
@@ -544,7 +545,20 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                         decSpread = Angle.ByDegree(CalculateDeclinationSpread(point1MountInfo.Declination, point2MountInfo.Declination, point3MountInfo.Declination));
                     }
 
-                    TPAPAVM.PolarErrorDetermination = new PolarErrorDetermination(solve3, position1, position2, position3, Latitude, Longitude, Elevation, refractionParameter, Properties.Settings.Default.RefractionAdjustment, decSpread.ArcSeconds);
+                    // The initial three-point solve is pure calculation, so build it off the caller context
+                    // and only publish the finished result back onto the view model afterwards.
+                    var determination = await Task.Run(() => new PolarErrorDetermination(solve3,
+                                                                                          position1,
+                                                                                          position2,
+                                                                                          position3,
+                                                                                          Latitude,
+                                                                                          Longitude,
+                                                                                          Elevation,
+                                                                                          refractionParameter,
+                                                                                          Properties.Settings.Default.RefractionAdjustment,
+                                                                                          decSpread.ArcSeconds),
+                                                       localCTS.Token);
+                    TPAPAVM.PolarErrorDetermination = determination;
 
                     Logger.Info($"Calculated Error: Az: {TPAPAVM.PolarErrorDetermination.InitialMountAxisAzimuthError}, Alt: {TPAPAVM.PolarErrorDetermination.InitialMountAxisAltitudeError}, Tot: {TPAPAVM.PolarErrorDetermination.InitialMountAxisTotalError}");
 
@@ -570,44 +584,48 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
 
                         var continuousSolve = await Solve(TPAPAVM, 0, progress, localCTS.Token);
                         if (continuousSolve.Success) {
-                            await TPAPAVM.UpdateDetails(continuousSolve, progress, localCTS.Token);
+                            var estimateStable = await TPAPAVM.UpdateDetails(continuousSolve, progress, localCTS.Token);
 
-                            await messageBroker.Publish(
-                                new PolarAlignmentErrorMessage(
-                                    correlatedGuid,
-                                    altitudeError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError.Degree,
-                                    azimuthError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError.Degree,
-                                    totalError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError.Degree
-                                )
-                            );
+                            if (estimateStable) {
+                                await messageBroker.Publish(
+                                    new PolarAlignmentErrorMessage(
+                                        correlatedGuid,
+                                        altitudeError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError.Degree,
+                                        azimuthError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError.Degree,
+                                        totalError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError.Degree
+                                    )
+                                );
 
-                            Logger.Info($"Calculated Error: Az: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError}, Alt: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError}, Tot: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError}");
+                                Logger.Info($"Calculated Error: Az: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError}, Alt: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError}, Tot: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError}");
 
-                            var totalErrorMinutes = Math.Abs(TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError.ArcMinutes);
-                            if (totalErrorMinutes <= AlignmentTolerance) {
-                                Logger.Info($"Total Error is below alignment tolerance ({AlignmentTolerance}'). " +
-                                    $"Altitude Error: {Math.Round(TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError.ArcMinutes, 2)}'. " +
-                                    $"Azimuth Error: {Math.Round(TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError.ArcMinutes, 2)}'. " +
-                                    $"Total Error: {Math.Round(totalErrorMinutes, 2)}'. " +
-                                    $"Automatically finishing polar alignment.");
-                                Notification.ShowInformation(
-                                    $"Total Error is below alignment tolerance.{Environment.NewLine}" +
-                                    $"Tolerance: {AlignmentTolerance}{Environment.NewLine}'" +
-                                    $"Altitude Error: {Math.Round(TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError.ArcMinutes, 2)}'{Environment.NewLine}" +
-                                    $"Azimuth Error: {Math.Round(TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError.ArcMinutes, 2)}'{Environment.NewLine}" +
-                                    $"Total Error: {Math.Round(totalErrorMinutes, 2)}'{Environment.NewLine}" +
-                                    $"Automatically finishing polar alignment.",
-                                    TimeSpan.FromMinutes(1));
-                                localCTS.Cancel();
+                                var totalErrorMinutes = Math.Abs(TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError.ArcMinutes);
+                                if (totalErrorMinutes <= AlignmentTolerance) {
+                                    Logger.Info($"Total Error is below alignment tolerance ({AlignmentTolerance}'). " +
+                                        $"Altitude Error: {Math.Round(TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError.ArcMinutes, 2)}'. " +
+                                        $"Azimuth Error: {Math.Round(TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError.ArcMinutes, 2)}'. " +
+                                        $"Total Error: {Math.Round(totalErrorMinutes, 2)}'. " +
+                                        $"Automatically finishing polar alignment.");
+                                    Notification.ShowInformation(
+                                        $"Total Error is below alignment tolerance.{Environment.NewLine}" +
+                                        $"Tolerance: {AlignmentTolerance}{Environment.NewLine}'" +
+                                        $"Altitude Error: {Math.Round(TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError.ArcMinutes, 2)}'{Environment.NewLine}" +
+                                        $"Azimuth Error: {Math.Round(TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError.ArcMinutes, 2)}'{Environment.NewLine}" +
+                                        $"Total Error: {Math.Round(totalErrorMinutes, 2)}'{Environment.NewLine}" +
+                                        $"Automatically finishing polar alignment.",
+                                        TimeSpan.FromMinutes(1));
+                                    localCTS.Cancel();
+                                }
+                                if (sw.Elapsed > TimeSpan.FromMinutes(5)) {
+                                    Logger.Info("Correction phase exceeded 5 minutes");
+                                    Notification.ShowInformation($"Polar alignment correction phase has been running for multiple minutes.{Environment.NewLine}Consider restarting the process to improve precision");
+                                    sw.Stop();
+                                    sw.Reset();
+                                }
+                                localCTS.Token.ThrowIfCancellationRequested();
+                                await TPAPAVM.MoveCloser(progress, localCTS.Token);
+                            } else {
+                                Logger.Warning("Skipping error publication and automated correction because the continuous estimate was unstable.");
                             }
-                            if (sw.Elapsed > TimeSpan.FromMinutes(5)) {
-                                Logger.Info("Correction phase exceeded 5 minutes");
-                                Notification.ShowInformation($"Polar alignment correction phase has been running for multiple minutes.{Environment.NewLine}Consider restarting the process to improve precision");
-                                sw.Stop();
-                                sw.Reset();
-                            }
-                            localCTS.Token.ThrowIfCancellationRequested();
-                            await TPAPAVM.MoveCloser(progress, localCTS.Token);
                         }
 
                         if (Properties.Settings.Default.AutoPause) {
@@ -751,7 +769,10 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                 IRenderedImage image = null;
                 try {
                     progress.Report(new ApplicationStatus() { Status = $"Capturing new image to solve..." });
-                    image = await imagingMediator.CaptureAndPrepareImage(seq, new PrepareImageParameters(true, false), token, progress);
+                    image = await imagingMediator.CaptureAndPrepareImage(seq,
+                                                                         new PrepareImageParameters(true, false),
+                                                                         token,
+                                                                         progress).ConfigureAwait(false);
                 } catch (Exception ex) {
                     Logger.Error(ex);
                 }
@@ -776,7 +797,10 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                     };
 
                     progress.Report(new ApplicationStatus() { Status = $"Solving image..." });
-                    result = await imageSolver.Solve(image.RawImageData, parameter, progress, token);
+                    result = await imageSolver.Solve(image.RawImageData,
+                                                     parameter,
+                                                     progress,
+                                                     token).ConfigureAwait(false);
                     if (!result.Success) {
                         usedSearchRadius += searchRadiusIncrementOnFailure;
                         await CoreUtil.Wait(TimeSpan.FromSeconds(1), token, progress, "Plate solve failed. Retrying...");
@@ -917,20 +941,6 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
 
             if (telescope.Connected && telescope.AtPark) {
                 i.Add("Telescope is parked. Please unpark the telescope first!");
-            }
-
-            //Solver
-            if (!ManualMode || (ManualMode && telescope.Connected)) {
-                if (profileService.ActiveProfile.PlateSolveSettings.PlateSolverType == Core.Enum.PlateSolverEnum.ASTROMETRY_NET) {
-                    i.Add("Astrometry.net is too slow for this method to work properly.");
-                    i.Add("Please choose a different solver!");
-                }
-            } else {
-                if (profileService.ActiveProfile.PlateSolveSettings.BlindSolverType == Core.Enum.BlindSolverEnum.ASTROMETRY_NET) {
-                    i.Add("Blind solving is required without mount connection, but");
-                    i.Add("Astrometry.net is too slow for this method to work properly.");
-                    i.Add("Please choose a different solver!");
-                }
             }
 
             if (PolarAlignmentPlugin.ActiveAlignmentSystemVM != null && PolarAlignmentPlugin.ActiveAlignmentSystemVM?.DoAutomatedAdjustments == true && AlignmentTolerance == 0) {

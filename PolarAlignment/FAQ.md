@@ -1,8 +1,8 @@
-﻿# Frequently Asked Questions
+# Frequently Asked Questions
 
 ## Do I need to point at or near the pole?
 
-No. In fact the plugin should work almost anywhere above your horizon. 
+No. TPPA can work almost anywhere above your horizon. Some field choices are more forgiving than others, especially during the correction phase.
 
 ## Will this work in the southern hemisphere?
 
@@ -10,158 +10,189 @@ Yes.
 
 ## Does it account for refraction?
 
-There is an option to enable this in the plugin page and it is currently under test.  
-Keep in mind however that a *perfect* polar alignment is inherently difficult, due to constant changing atmosphere conditions, but the procedure will give you a good alignment with and without refraction corrections.
+Yes. There is an option on the plugin page to include refraction-aware calculations, and that option is still marked as under test.  
+Even with refraction enabled, a perfectly static solution is difficult because atmospheric conditions change over time, but TPPA can still provide a good practical alignment with or without refraction correction.
 
 ## How does the procedure work?
 
-The procedure consists of the following steps  
+The procedure consists of the following steps:
 
-* Step 1  
-    + Slew to the specified alt/az coordinates - or start from current position
-    + Start telescope tracking  
-* Step 2  
-    + Take an image of current position
-    + Plate solve current position  
-* Step 3  
-    + Move the telescope by the [Move Rate] (automatic mode) or manually in East or West direction along the Right Ascension axis, based on [East Direction] setting until at least moved by [Target Distance]°
-    + Take an image of current position
-    + Plate solve current position  
-* Step 4  
-    + Move the telescope by the [Move Rate] (automatic mode) or manually in East or West direction along the Right Ascension axis, based on [East Direction] setting until at least moved by [Target Distance]°
-    + Take an image of current position
-    + Plate solve current position  
-* Step 5  
-    + Calculate the telescope axis out of the three points and compare it with the expected axis based on the user location  
-* Step 6  
-    + Continuously loop exposures, while tracking and plate solve them. Adjust the polar error according to the new solved result
-    + The user should now adjust the altitude and azimuth of the mount during the loop until precise enough polar alignment is reached
-    + By left clicking on a star, the visual indicators will follow the star for each incremental adjustment  
-* Step 7  
-    + Once the window is closed the instruction will finish and is complete
+* Step 1
+    + Slew to the specified alt/az start coordinates, or start from the current position
+    + Start telescope tracking
+* Step 2
+    + Capture an image at the current position
+    + Plate-solve the image
+* Step 3
+    + Move the telescope at the configured [Move Rate] in automatic mode, or move it manually east or west along the right ascension axis based on the [East Direction] setting, until it has moved by at least [Target Distance]°
+    + Capture an image at the new position
+    + Plate-solve the image
+* Step 4
+    + Repeat the same RA-axis movement again until the next point has moved by at least [Target Distance]°
+    + Capture an image at the new position
+    + Plate-solve the image
+* Step 5
+    + Reconstruct the telescope axis from the three measured points and compare it with the expected polar axis for the configured location
+* Step 6
+    + Continue capturing and plate-solving while the mount tracks
+    + Update the reported polar error from each new solve
+    + Adjust only the mount altitude and azimuth during this phase until the alignment is good enough
+    + If you left-click a star, the visual indicators will follow that reference star during incremental adjustments
+* Step 7
+    + Close the window when you are done to finish the instruction
 
 ## What do I need for the procedure to run?
 
-* Camera has to be connected and ready
-* A goto mount that can move along the right ascension axis via its ASCOM driver has to be connected
-  + Alternatively a manual mode can be enabled to manually move the mount along the right ascension axis
-* Platesolving must be setup (Astrometry.NET is not supported as primary solver for this, as it is too slow)
+* Site latitude and longitude should be set correctly in N.I.N.A.
+* A connected camera that is ready to capture
+* A working plate solver configured for the current optical setup
+* An equatorial mount whose right ascension axis can be moved
+    + In automatic mode, the mount must be connected and must support RA-axis motion through ASCOM `MoveAxis`
+    + In Manual Mode, you provide the RA-axis movement yourself and a mount connection is optional
 
-## The mount and camera are both connected, but the button is greyed out to run it in auto mode, why?
+## The mount and camera are both connected, but the automatic-mode button is greyed out. Why?
 
-* The automatic mode requires the mount to move along the right ascension axis. To achieve this a special method from ASCOM is used ["MoveAxis"](https://ascom-standards.org/Help/Platform/html/M_ASCOM_DeviceInterface_ITelescopeV3_MoveAxis.htm), which is different from standard slews.
-* When the N E S W buttons in the telescope tab are greyed out the driver reports via ["CanMoveAxis"](https://ascom-standards.org/Help/Platform/html/M_ASCOM_DeviceInterface_ITelescopeV3_CanMoveAxis.htm) that the mount is incapable of using the "MoveAxis" method and thus making it impossible to run the automatic mode.
-* Reach out to your mount vendor to enhance the driver (or for EQMOD users - disable strict conformance mode in the driver setup)  
-* Until then you can use the **manual mode** instead
+* Automatic mode requires the mount to move along the right ascension axis through the ASCOM [`MoveAxis`](https://ascom-standards.org/Help/Platform/html/M_ASCOM_DeviceInterface_ITelescopeV3_MoveAxis.htm) method, which is different from a normal slew.
+* If the N/E/S/W buttons in the N.I.N.A. telescope tab are greyed out, the driver is reporting through [`CanMoveAxis`](https://ascom-standards.org/Help/Platform/html/M_ASCOM_DeviceInterface_ITelescopeV3_CanMoveAxis.htm) that it cannot use `MoveAxis`.
+* If that is the case, automatic mode cannot be used.
+* Ask your mount vendor whether the driver supports `MoveAxis`. For EQMOD users, disabling strict conformance mode may help.
+* Until then, use **Manual Mode** instead.
 
-## How does manual mode work exactly?
+## How does Manual Mode work exactly?
 
-The manual mode is targeted for mount drivers that can't use the MoveAxis command or can't connect to the application in general.  
-For the manual mode to work properly follow these instructions:
+Manual Mode is intended for mounts whose drivers cannot use `MoveAxis`, or for cases where the mount is not connected to N.I.N.A.  
+For Manual Mode to work well, follow these steps:
 
-1. If possible connect to your mount, so solving can have reference coordinates and does not need the blind solver. If you have no telescope connection, make sure your blind solver is setup.  
-2. Enable the `Manual Mode` toggle  
-3. Slew to the starting position where you want to start the polar alignment procedure  
-4. Enable tracking of your mount  
-5. Click start   
-6. The polar alignment procedure will take the first measurement point.  
-7. After the first point you will be asked to `Move the mount along Right Ascension (RA) axis`. The total amount of movement required will depend on your `Measure Point Distance` set   
-8. During moving the mount, the polar alignment procedure will constantly solve and check how far you have already moved  
-9. When moved enough for the second point the procedure will automatically transition to getting the third point. This third step will work exactly like step 6 & 7  
-10. After moving enough for the third point, there is a 10 second cooldown period, where you should not move the mount any further. After this cooldown period the final point will be determined.  
-11. Once all points are determined, the error adjustment will be displayed.  
+1. If possible, connect the mount so TPPA can use reference coordinates and the regular solver path. If you do not connect the mount, make sure the blind solver is configured.
+2. Enable the `Manual Mode` toggle.
+3. Slew to the field where you want to start the alignment.
+4. Enable tracking.
+5. Click `Start`.
+6. TPPA captures the first measurement point.
+7. After the first point, TPPA asks you to move the mount along the right ascension axis. The total amount of movement depends on the configured `Target Distance`.
+8. While you are moving, TPPA continues solving and checking how far the mount has already moved.
+9. Once the second point is far enough away, TPPA transitions to the third point automatically. This stage works the same way as steps 7 and 8.
+10. After the third-point movement is large enough, TPPA waits 10 seconds for settling. Do not move the mount during that wait. After that, it determines the final point.
+11. Once all points are measured, TPPA displays the polar error and the correction phase begins.
 
-## Is there a preferred direction to start the polar alignment process?
+## Is there a preferred direction or sky position to start from?
 
-While the polar alignment in itself will work anywhere above your horizon, the further away you are from the celestial equator (which is at declination 0°) 
-the less error prone the correction calculation will be, as things like tracking errors will be less pronounced then.  
-There are also locations, that should be avoided due to geometrical constraints
-  - pointing to azimuth exactly at 90° and 270° for the correction adjustments, as there the correction for altitude is impossible to calculate.
-  - pointing directly to the zenith for the correction adjustments, as there the correction for azimuth is impossible to calculate.
+TPPA can work almost anywhere above your horizon, but some starting fields are more tolerant than others. In practice:
 
-## What does setting xyz do?
+* Prefer a field toward the pole for your hemisphere.
+* If practical, choose a field around 15° altitude or higher.
+* Avoid exact east or west during the correction phase, because those positions are weak for the correction math.
+* Avoid exact zenith during the correction phase.
+* Avoid runs that will cross the meridian during the three-point slews or the later adjustment phase.
 
-**Default [setting]**  
-All settings starting with *default* are the initial settings where the values inside the instructions will be pre-populated from  
+## What do the settings mean?
+
 **Default Move Rate**  
-The rate at which the telescope should be moved between points. Typically this is in degrees / seconds, but some mount vendors implement the move rate in a different way. If your mount differs from the expected rate, you might need to adjust the [*Axis move timeout factor*]  
+The default RA-axis rate TPPA requests when it moves the mount automatically between the first three measurement points.
+
 **Default East Direction**  
-Defines if the direction for the second and third point should be done by moving the mount in east or west direction along the RA axis  
-*Hint: Some mount drivers need their primary axis move direction reversed inside the telescope tab*  
+Controls whether the automatic RA sweep is sent in the eastward direction.
+
 **Default Target Distance**  
-The distance between measure points  
+The angular separation between the measurement points during the initial RA-only sweep.
+
 **Default Search Radius**  
-As platesolving should be quick, this is the search radius that should be used for your plate solver. It should be larger than your initial error, but not too large to get quick solves.  
+The initial plate-solve search radius, in degrees. It should be large enough to cover your starting pointing and alignment error, but not so large that solves become unnecessarily slow.
+
 **Axis move timeout factor**  
-After ([Measure Point Distance] / [Telescope Move Rate] * [Axis move timeout factor]) seconds, the mount will stop moving to the next point as a failsafe. Only increase this if you get warnings, that the [Measure Point Distance] was not reached  
+Multiplier applied to the automatic RA-move timeout. TPPA computes the timeout from move distance and move rate, then multiplies it by this factor.
+
 **Default azimuth offset from pole**  
-The azimuth offset in degrees from the pole position to start from for the first point  
+The default azimuth offset used when TPPA creates a start position instead of starting from the current position.
+
 **Default altitude offset from pole**  
-The altitude offset in degrees from the pole position to start from for the first point  
-**Polar Alignment Tolerance**
-Setting this value to non-zero will specify a tolerance in arcminutes where the polar alignment routine automatically completes when below the threshold
-**Various Error Colors**  
-Here you can adjust the error colors for the guide numbers that will show you the error amount  
+The default altitude offset used when TPPA creates a start position instead of starting from the current position.
+
+**Default Alignment Tolerance**  
+If this value is non-zero, TPPA can automatically finish once the reported total error falls below the configured threshold in arcminutes.
+
+**Error Colors**  
+These settings control the colors used for the altitude, azimuth, total-error, target-circle, and success overlays.
+
 **Log polar alignment error adjustments**  
-When this is enabled, a log file will be created at `\Documents\N.I.N.A\TPPA` and filled with the polar alignment error and the continuous errors after adjustments.  
-**Adjust for refraction**  
-When this is enabled, the application will factor in refraction based on your location, elevation and current weather conditions.  
-If no weather source is connected a [standard parameter set](https://en.wikipedia.org/wiki/Standard_temperature_and_pressure) for pressure (1013.25HPa), humidity (0%) and temperature (15°C) is used instead.  
+When enabled, TPPA writes the current altitude, azimuth, and total error values to a log file in `\Documents\N.I.N.A\PolarAlignment`.
+
+**Adjust for refraction?**  
+When enabled, TPPA uses refraction-aware coordinates based on location, elevation, weather data, and wavelength.  
+If no weather source is connected, TPPA falls back to a standard set of atmospheric values.
+
+**Use continuous error estimator?**
+When enabled, TPPA uses the experimental time-aware estimator during the live correction loop. When disabled, TPPA keeps using the legacy image-plane calculation.
+
 **Stop Tracking when done?**  
-Disable this setting if you want your mount to continue tracking after the polar alignment is finished  
-**Use Avalon Polar Alignment System?**  
-This requires the [Avalon Universal Polar Alignment System](https://www.avalon-instruments.com/products-menu/accessories/universal-polar-alignment-system-detail) being connected to your system  
-When activated, the polar alignment routine will connect to the unit automatically after the third step, allowing you to remotely adjust the altitude and azimuth of your system.  
-**X axis backlash compensation**  
-The amount of steps to overshoot when a change in direction happens. Set to 0 to disable.  
+Disable this if you want the mount to continue tracking after TPPA finishes.
+
+**Auto pause between continuous exposures?**  
+When enabled, TPPA pauses itself after each continuous correction update.
+
+**Polar Alignment System**  
+Selects which supported adjustment system TPPA exposes during the correction phase: `None`, `UPAS`, or `OAPA`.
+
+**Reverse Azimuth Axis?**  
+Reverses azimuth movement commands sent to the selected adjustment system.
+
+**Reverse Altitude Axis?**  
+Reverses altitude movement commands sent to the selected adjustment system.
+
+**Azimuth backlash compensation**  
+If non-zero, TPPA adds backlash compensation when the azimuth movement direction changes.
+
 **Do automated adjustments?**  
-Requires `Use Avalon Polar Alignment System?` to be turned on.  
-When activated, this will connect to the UPA and slowly nudge the UPA to the target position automatically after the error has been determined. The control panel will not be shown as movements are done automatically.  
-Ensure your gear ratio settings are roughly matched so that one step in the UPA results in an arcminute of movement. The default settings should work fine for the standard version of the UPA.  
-Make sure your mount is roughly leveled.  
-*Note: For this setting to work, you also need to set the `Polar Alignment Tolerance` to a non-zero value.*  
+When enabled, TPPA tries to send automated correction nudges through the selected adjustment system during the correction phase. This option is still experimental.
+
 **Automated adjustment settle time**  
-Requires `Do automated adjustments?` to be turned on.   
-Specifies the amount of time after each movement to wait.
+The number of seconds TPPA waits after each automated adjustment before continuing.
 
 ## The solver keeps failing, even though solving works in other places. How can I fix this?
 
-To speed up the solving process, TPPA has a separate setting for the solver [Search Radius]. This value has to be higher than your polar alignment and pointing error combined, otherwise the solve will fail. 
-Increase this setting in case you are not able to solve successfully during TPPA, but solving is working in other places.
+TPPA uses its own solve `Search Radius` setting so the workflow can solve quickly.  
+If that radius is smaller than your combined pointing and polar-alignment error, solving can fail even if solving works elsewhere in N.I.N.A.  
+Increase the TPPA search radius first, then verify exposure, focal length, pixel size, and binning.
 
 ## Do I need the guider or the main imaging camera for this to work?
 
-All you need to have is a camera that can be connected to N.I.N.A. and correct settings for your focal length and camera pixel size.
-In addition to that you need a plate solver setup (ASTAP is recommended here) to work with the combination.
+You only need a camera that can be connected to N.I.N.A. and correct optical parameters for focal length and pixel size.  
+You also need a working plate solver for that setup.
 
 ## Do I need a goto mount?
 
-With the plugin version 1.3.0.0 and above there is a toggle for "manual mode". There the mount will not be controlled, but instead the users needs to move the mount by themselves.  
-The polar alignment will then start on the current position and will tell you when to move the mount to the second and third point. Ideally you enable tracking for the whole procedure.
+No. TPPA supports `Manual Mode`. In that mode, TPPA does not control the mount for the RA sweep.  
+Instead, you move the mount yourself along the RA axis and TPPA tells you when the second and third points are far enough away.  
+If possible, keep tracking enabled for the whole procedure.
 
 ## How do I start the polar alignment?
 
-There are two ways to start it. From within an advanced sequence and directly inside the imaging tab.  
-**Inside advanced sequence**: Just drag the `Three Point Polar Alignment` instruction to the location inside your advanced sequence where you think it will fit best. Once the instruction is executed a new window will appear that will guide you through the process.  
-**From imaging tab**: Open the panel from the available tools on the top right corner. A new panel will appear that will guide you through the process.
+There are two ways to start it:
 
-## My error keeps changing when not adjusting anything. Why?
+**Inside the Advanced Sequencer**  
+Drag the `Three Point Polar Alignment` instruction into your sequence where you want it to run. When the instruction executes, a guided window appears.
 
-The routine relies on the mount to be tracking and any change of the frame will be added to the error corrections.  
-When the mount is not aligned or just ran through some periodic error it will not track perfectly and therefore some error margin will be introduced.  
-As already stated above, don't worry about a few arcseconds of error. If it takes a long time for you to dial in the alignment you can also restart the alignment routine to recalculate the initial error and fine tune the alignment further.
+**From the Imaging tab**  
+Open the TPPA tool from the available dockables in the Imaging tab. The tool pane exposes the same workflow and start controls directly.
+
+## My error keeps changing when I am not adjusting anything. Why?
+
+The routine expects the mount to keep tracking, and any change in the field is reflected in the continuous correction estimate.  
+If tracking is imperfect, or if the mount has just gone through periodic error, some motion in the reported error is normal.  
+A few arcseconds of movement is usually not a problem. If it takes a long time to dial in the final adjustment, restarting TPPA for a fresh fine pass can help.
 
 ## What is the size of the target circle?
 
-The circle size will be rendered based on your image scale and there will be circles drawn at 30 arcseconds, 1 arcminute and 5 arcminutes.
+The circle is rendered from your image scale. TPPA draws circles at 30 arcseconds, 1 arcminute, and 5 arcminutes.
 
-## Are there any areas in the sky which I should avoid? 
-- Meridian
-- Direction exactly towards east (90°) or west (270°)
-- Zenith
-- Low Altitude
-- Avoid crossing the meridian during the 3 point slews and adjustments
+## Are there any areas in the sky I should avoid?
 
-(For southern hemisphere the ideal zones are due south) 
+* Exact east (`90°`) or west (`270°`) during the correction phase
+* Exact zenith during the correction phase
+* Very low-altitude fields
+* Runs that will cross the meridian during the three-point slews or the later adjustment phase
+
+Lower-altitude fields are generally less forgiving, so if practical, choose a field around 15° altitude or higher.  
+For the southern hemisphere, the preferred pole-side region is due south.
 
 ![TPPA_Zones](./TPPA_Zones.png)

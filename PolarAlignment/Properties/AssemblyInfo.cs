@@ -38,6 +38,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyMetadata("LicenseURL", "https://www.mozilla.org/en-US/MPL/2.0/")]
 //The repository where your pluggin is hosted
 [assembly: AssemblyMetadata("Repository", "https://github.com/isbeorn/nina.plugin.polaralignment")]
+[assembly: InternalsVisibleTo("NINA.Plugins.PolarAlignment.Test")]
 
 [assembly: AssemblyMetadata("ChangelogURL", "https://github.com/isbeorn/nina.plugin.polaralignment/blob/master/PolarAlignment/Changelog.md")]
 
@@ -52,22 +53,22 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyMetadata("AltScreenshotURL", "https://github.com/isbeorn/nina.plugin.polaralignment/blob/master/PolarAlignment/Imaging.png?raw=true")]
 [assembly: AssemblyMetadata("LongDescription", @"Three Point Polar Alignment almost anywhere in the sky  
 
-A new instruction will be available for the advanced sequencer as well as a new tool pane inside the imaging tab that will assist in polar alignment.  
+This plugin adds a Three Point Polar Alignment instruction to the Advanced Sequencer and a matching tool pane to the Imaging tab. The sequencer path opens a guided window during execution, and the imaging-tab path exposes the same workflow directly from the dockable tool.  
 
-When the instruction is called from within the sequencer, a new window will be visible, that will guide you through the process.   
-Inside the imaging tab there will be a button inside the tool pane to show the polar alignment assistant with parameters and a button to start the process.  
+TPPA first captures and plate-solves three measurement points while the mount moves only along the right ascension axis. From those three solved positions it reconstructs the mount axis and reports the initial polar alignment error. After that it enters a continuous solve loop so you can adjust the mount altitude and azimuth while TPPA keeps updating the remaining error.  
+
+If a supported adjustment system is selected, TPPA can connect to it after the initial three-point solve and optionally drive automated correction nudges.  
 
 [*Frequently Asked Questions*](https://github.com/isbeorn/nina.plugin.polaralignment/blob/master/PolarAlignment/FAQ.md)
 
 *Prerequisites*  
-* Latitude and Longitude has to be set in options. You can use [www.latlong.net](https://www.latlong.net/) to easily determine your location.
-* Camera has to be connected and ready
-* A goto mount that can move along the right ascension axis using one of three methods:
-    + Fully Automated - Requires the mount to be connected via its ASCOM driver and the tool will move the mount
-    + Manual mode with mount connected via its ASCOM driver - You need to move the mount via the hand controls or via the mount software, but leave the clutches engaged
-    + Manual mode without the mount being connected - You need to manually move the mount either by hand controller or by loosening the clutches
-    
-* Platesolving must be setup (Astrometry.NET is not supported as primary solver for this, as it is too slow)
-    + When using manual mode and there is no mount connected, the blind solver will be used
+* Site latitude, longitude, and elevation must be set correctly in the active N.I.N.A. profile
+* A connected camera that can capture frames for plate solving
+* Plate solving must be configured and working with the current optical setup
+    + When using manual mode without a mount connection, TPPA uses the blind solver path
+* An equatorial mount whose right ascension axis can be moved using one of three methods:
+    + Fully automated, with the mount connected through N.I.N.A. so TPPA can move it
+    + Manual mode with the mount connected, where you move the mount through its controls or software
+    + Manual mode without a mount connection, where you move the mount yourself
 
-This method will use platesolving in combination with mount and camera control to automatically determine the polar alignment error.")]
+For best results, keep tracking enabled during the run, move only the RA axis between the first three points, and then adjust only mount altitude and azimuth during the correction phase.")]

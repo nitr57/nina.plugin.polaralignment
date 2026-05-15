@@ -53,9 +53,14 @@ namespace NINA.Plugins.PolarAlignment {
         public UniversalPolarAlignmentVM UniversalPolarAlignmentVM => PolarAlignmentPlugin.UniversalPolarAlignmentVM;
         public UniversalPolarAlignmentOAPAVM UniversalPolarAlignmentOAPAVM => PolarAlignmentPlugin.UniversalPolarAlignmentOAPAVM;
         public IPolarAlignmentSystemVM ActiveAlignmentSystemVM => PolarAlignmentPlugin.ActiveAlignmentSystemVM;
+        public bool UseContinuousErrorEstimator => Properties.Settings.Default.UseContinuousErrorEstimator;
+
+        private readonly AutomatedAdjustmentController automatedAdjustmentController = new AutomatedAdjustmentController();
+        private bool lastContinuousEstimateStable = true;
 
         public void ActivateFirstStep() {
-            lastMovement = null;
+            automatedAdjustmentController.Reset();
+            lastContinuousEstimateStable = true;
             Steps[0].Active = true;
             Steps[0].Relevant = true;
         }
@@ -96,9 +101,27 @@ namespace NINA.Plugins.PolarAlignment {
             await selectNewStarLock.WaitAsync();
             try {
                 ReferenceStar = await GetClosestStarPosition(Image, p, default, token);
-                ReferenceStarCoordinates = PolarErrorDetermination.CurrentReferenceFrame.Coordinates.Shift(ReferenceStar.X - Center.X, ReferenceStar.Y - Center.Y, PolarErrorDetermination.CurrentReferenceFrame.Orientation, ArcsecPerPix, ArcsecPerPix);
+                ReferenceStarCoordinates = PolarErrorDetermination.CurrentReferenceFrame.Coordinates.Shift(ReferenceStar.X - Center.X,
+                                                                                                           ReferenceStar.Y - Center.Y,
+                                                                                                           GetProjectionAngle(PolarErrorDetermination.CurrentReferenceFrame),
+                                                                                                           ArcsecPerPix,
+                                                                                                           ArcsecPerPix);
 
-                CalculateErrorDetails();
+                var refractionParams = RefractionParameters.GetRefractionParameters(weatherDataMediator.GetInfo());
+                var useContinuousErrorEstimator = UseContinuousErrorEstimator;
+                var overlay = await Task.Run(() => useContinuousErrorEstimator
+                    ? BuildErrorDetailComputation(PolarErrorDetermination,
+                                                  ReferenceStar,
+                                                  Center,
+                                                  ArcsecPerPix,
+                                                  refractionParams)
+                    : BuildLegacyErrorDetailComputation(PolarErrorDetermination,
+                                                        ReferenceStar,
+                                                        Center,
+                                                        ArcsecPerPix,
+                                                        refractionParams),
+                                             token);
+                ApplyErrorDetailComputation(overlay);
             } catch (Exception ex) {
                 Logger.Error("An error occurred during selection of new reference star", ex);
                 Notification.ShowWarning("Failed to determine new reference star on current image");
@@ -108,168 +131,333 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
 
-        public async Task UpdateDetails(PlateSolveResult psr, IProgress<ApplicationStatus> progress, CancellationToken token) {
+        public async Task<bool> UpdateDetails(PlateSolveResult psr, IProgress<ApplicationStatus> progress, CancellationToken token) {
             PolarErrorDetermination.CurrentReferenceFrame = psr;
-            var currentCenter = PolarErrorDetermination.CurrentReferenceFrame;
+            var refractionParams = RefractionParameters.GetRefractionParameters(weatherDataMediator.GetInfo());
+            PolarErrorDetermination.UpdateCurrentCorrectionFieldWarnings(refractionParams);
+            var useContinuousErrorEstimator = UseContinuousErrorEstimator;
+            var estimateStable = true;
 
-            if ((psr.Coordinates - currentCenter.Coordinates).Distance.ArcSeconds > ArcsecPerPix) {
-                // To minimize projection errors, try to re-acquire the same star from star detection instead of just projecting
-                var p = ReferenceStarCoordinates.XYProjection(currentCenter.Coordinates, Center, ArcsecPerPix, ArcsecPerPix, currentCenter.Orientation);
-                await SelectNewReferenceStar(p, token);
+            if (useContinuousErrorEstimator) {
+                // The continuous estimator is pure math over the current plate solve and the last known state,
+                // so it can be evaluated off the caller context without touching UI-bound properties.
+                var estimate = await Task.Run(() => ContinuousPolarErrorEstimator.Estimate(PolarErrorDetermination,
+                                                                                            psr,
+                                                                                            refractionParams,
+                                                                                            PolarErrorDetermination.CurrentMountAxisAzimuthError.Degree,
+                                                                                            PolarErrorDetermination.CurrentMountAxisAltitudeError.Degree),
+                                              token);
+
+                if (estimate.Success) {
+                    PolarErrorDetermination.CurrentMountAxisAzimuthError = Angle.ByDegree(estimate.AzimuthErrorDegrees);
+                    PolarErrorDetermination.CurrentMountAxisAltitudeError = Angle.ByDegree(estimate.AltitudeErrorDegrees);
+                    PolarErrorDetermination.CurrentMountAxisTotalError = Angle.ByDegree(Accord.Math.Tools.Hypotenuse(estimate.AzimuthErrorDegrees, estimate.AltitudeErrorDegrees));
+                    automatedAdjustmentController.UpdateObservation(estimate.AzimuthErrorDegrees, estimate.AltitudeErrorDegrees);
+                    lastContinuousEstimateStable = true;
+                } else {
+                    Logger.Warning($"Continuous polar error estimate was unstable. Condition number: {estimate.ConditionNumber}; residual: {estimate.ResidualArcSeconds}\"");
+                    lastContinuousEstimateStable = false;
+                    estimateStable = false;
+                }
             } else {
-                currentCenter = psr;
-                ReferenceStar = ReferenceStarCoordinates.XYProjection(currentCenter.Coordinates, Center, ArcsecPerPix, ArcsecPerPix, currentCenter.Orientation);
-                CalculateErrorDetails();
+                lastContinuousEstimateStable = true;
             }
 
+            if (ReferenceStarCoordinates != null) {
+                var projectedReferenceStar = await Task.Run(() => ReferenceStarCoordinates.XYProjection(psr.Coordinates,
+                                                                                                         Center,
+                                                                                                         ArcsecPerPix,
+                                                                                                         ArcsecPerPix,
+                                                                                                         GetProjectionAngle(psr)),
+                                                            token);
+                ReferenceStar = await GetClosestStarPosition(Image, projectedReferenceStar, progress, token);
+            }
+
+            var overlay = await Task.Run(() => useContinuousErrorEstimator
+                ? BuildErrorDetailComputation(PolarErrorDetermination,
+                                              ReferenceStar,
+                                              Center,
+                                              ArcsecPerPix,
+                                              refractionParams)
+                : BuildLegacyErrorDetailComputation(PolarErrorDetermination,
+                                                    ReferenceStar,
+                                                    Center,
+                                                    ArcsecPerPix,
+                                                    refractionParams),
+                                         token);
+            ApplyErrorDetailComputation(overlay);
             WaitingForUpdate = false;
+            return estimateStable;
         }
 
-        private class Movement {
-            public Movement(float azimuth, float altitude, float azimuthSign, float altitudeSign, double azimuthErrorBeforeMovement, double altitudeErrorBeforeMovement) {
-                Azimuth = azimuth;
-                Altitude = altitude;
-                AzimuthSign = azimuthSign;
-                AltitudeSign = altitudeSign;
-                AzimuthErrorBeforeMovement = azimuthErrorBeforeMovement;
-                AltitudeErrorBeforeMovement = altitudeErrorBeforeMovement;
-            }
-
-            public float Azimuth { get; }
-            public float Altitude { get; }
-            public float AzimuthSign { get; }
-            public float AltitudeSign { get; }
-            public double AzimuthErrorBeforeMovement { get; }
-            public double AltitudeErrorBeforeMovement { get; }
-        }
-
-        private Movement lastMovement = null;
         public async Task MoveCloser(IProgress<ApplicationStatus> progress, CancellationToken token) {
             var activeSystem = ActiveAlignmentSystemVM;
             if (activeSystem == null || !activeSystem.DoAutomatedAdjustments) { return; }
 
-            var az = PolarErrorDetermination.CurrentMountAxisAzimuthError;
-            var alt = PolarErrorDetermination.CurrentMountAxisAltitudeError;
+            var useContinuousErrorEstimator = UseContinuousErrorEstimator;
 
-            var azimuthSign = lastMovement?.AzimuthSign ?? 1f;
-            var altitudeSign = lastMovement?.AltitudeSign ?? 1f;
-            if (lastMovement != null) {
-                if (lastMovement?.Altitude == 0) {
-                    if (lastMovement.Azimuth != 0 && Math.Abs(az.Degree) > Math.Abs(lastMovement.AzimuthErrorBeforeMovement * 1.15d)) {
-                        Logger.Info($"Reversing x axis movement as azimuth error is worse than before. Before: {lastMovement.AzimuthErrorBeforeMovement} - After: {az.Degree}");
-                        azimuthSign = -1f * lastMovement.AzimuthSign;
-                    }
-                } else if (lastMovement?.Azimuth == 0) {
-                    if (lastMovement.Altitude != 0 && Math.Abs(alt.Degree) > Math.Abs(lastMovement.AltitudeErrorBeforeMovement * 1.15d)) {
-                        Logger.Info($"Reversing y axis movement as altitude error is worse than before. Before: {lastMovement.AltitudeErrorBeforeMovement} - After: {alt.Degree}");
-                        altitudeSign = -1f * lastMovement.AltitudeSign;
-                    }
+            if (useContinuousErrorEstimator && !lastContinuousEstimateStable) {
+                progress?.Report(new ApplicationStatus() { Status = "Skipping automated adjustment because the continuous error estimate is unstable." });
+                return;
+            }
+
+            if (useContinuousErrorEstimator && PolarErrorDetermination.CurrentCorrectionFieldNearEastWest) {
+                progress?.Report(new ApplicationStatus() { Status = "Skipping automated adjustment because the current correction field is too close to exact east or west." });
+                return;
+            }
+
+            var plan = automatedAdjustmentController.CreatePlan();
+            if (!plan.HasMovement) {
+                progress?.Report(new ApplicationStatus() { Status = plan.Reason });
+                return;
+            }
+
+            progress?.Report(new ApplicationStatus() {
+                Status = $"{plan.Reason}: X {Math.Round(plan.XMagnitude, 2)}, Y {Math.Round(plan.YMagnitude, 2)}"
+            });
+
+            var executedX = 0.0;
+            var executedY = 0.0;
+
+            if (Math.Abs(plan.XMagnitude) > 0) {
+                if (!await activeSystem.TryNudgeX((float)plan.XMagnitude, token)) {
+                    automatedAdjustmentController.NoteFailedExecution();
+                    return;
                 }
+                executedX = plan.XMagnitude;
             }
 
-            var xGreaterThanY = Math.Abs(az.Degree) > Math.Abs(alt.Degree);
-            if (xGreaterThanY) {
-                float azAdjustment = (float)az.ArcMinutes * azimuthSign * 0.75f;
-                progress?.Report(new ApplicationStatus() { Status = $"Nudging along X axis by {Math.Round(azAdjustment, 2)}" });
-                await activeSystem.NudgeX(azAdjustment, token);
-                lastMovement = new Movement(azAdjustment, 0, azimuthSign, lastMovement?.AltitudeSign ?? 1f, az.Degree, alt.Degree);
-            } else {
-                float altAdjustment = (float)alt.ArcMinutes * altitudeSign * 0.75f;
-                progress?.Report(new ApplicationStatus() { Status = $"Nudging along Y axis by {Math.Round(altAdjustment, 2)}" });
-                await activeSystem.NudgeY(altAdjustment, token);
-                lastMovement = new Movement(0, altAdjustment, lastMovement?.AzimuthSign ?? 1f, altitudeSign, az.Degree, alt.Degree);
+            if (Math.Abs(plan.YMagnitude) > 0) {
+                if (!await activeSystem.TryNudgeY((float)plan.YMagnitude, token)) {
+                    if (Math.Abs(executedX) > 0) {
+                        automatedAdjustmentController.NoteSuccessfulExecution(new AutomatedAdjustmentPlan(executedX,
+                                                                                                           0,
+                                                                                                           plan.IsProbe,
+                                                                                                           $"{plan.Reason} (partial X move)"));
+                        await CoreUtil.Wait(TimeSpan.FromSeconds(activeSystem.AutomatedAdjustmentSettleTime), token, progress, "Settling");
+                        return;
+                    }
+
+                    automatedAdjustmentController.NoteFailedExecution();
+                    return;
+                }
+                executedY = plan.YMagnitude;
             }
 
+            automatedAdjustmentController.NoteSuccessfulExecution(new AutomatedAdjustmentPlan(executedX, executedY, plan.IsProbe, plan.Reason));
             await CoreUtil.Wait(TimeSpan.FromSeconds(activeSystem.AutomatedAdjustmentSettleTime), token, progress, "Settling");
         }
 
-        private void CalculateErrorDetails() {
+        internal sealed class ErrorDetailComputation {
+            public ErrorDetailComputation(ErrorDetail current, ErrorDetail initial, double? azimuthErrorDegrees = null, double? altitudeErrorDegrees = null) {
+                Current = current;
+                Initial = initial;
+                AzimuthErrorDegrees = azimuthErrorDegrees;
+                AltitudeErrorDegrees = altitudeErrorDegrees;
+            }
 
-            var refractionParams = RefractionParameters.GetRefractionParameters(weatherDataMediator.GetInfo());
-            var currentCenter = PolarErrorDetermination.CurrentReferenceFrame;
+            public ErrorDetail Current { get; }
+            public ErrorDetail Initial { get; }
+            public double? AzimuthErrorDegrees { get; }
+            public double? AltitudeErrorDegrees { get; }
+            public bool HasErrorEstimate => AzimuthErrorDegrees.HasValue && AltitudeErrorDegrees.HasValue;
+        }
 
-            var originPixel = PolarErrorDetermination.InitialReferenceFrame.Coordinates.XYProjection(currentCenter.Coordinates, Center, ArcsecPerPix, ArcsecPerPix, currentCenter.Orientation);
+        internal ErrorDetailComputation BuildLegacyErrorDetailComputation(PolarErrorDetermination determination,
+                                                                          Point referenceStar,
+                                                                          Point center,
+                                                                          double arcsecPerPix,
+                                                                          RefractionParameters refractionParams) {
+            var currentCenter = determination.CurrentReferenceFrame;
+            var originPixel = determination.InitialReferenceFrame.Coordinates.XYProjection(currentCenter.Coordinates,
+                                                                                           center,
+                                                                                           arcsecPerPix,
+                                                                                           arcsecPerPix,
+                                                                                           GetProjectionAngle(currentCenter));
 
-
-            var pointShift = Center - originPixel;
+            var pointShift = center - originPixel;
             originPixel = originPixel + pointShift * 2;
 
-            var destinationAltAz = PolarErrorDetermination.GetDestinationCoordinates(-PolarErrorDetermination.InitialMountAxisAzimuthError.Degree, -PolarErrorDetermination.InitialMountAxisAltitudeError.Degree, refractionParams).Transform(Epoch.J2000);
-            var destinationPixel = destinationAltAz.XYProjection(currentCenter.Coordinates, Center, ArcsecPerPix, ArcsecPerPix, currentCenter.Orientation);
+            var destinationAltAz = determination.GetDestinationCoordinates(-determination.InitialMountAxisAzimuthError.Degree,
+                                                                           -determination.InitialMountAxisAltitudeError.Degree,
+                                                                           refractionParams).Transform(Epoch.J2000);
+            var destinationPixel = destinationAltAz.XYProjection(currentCenter.Coordinates,
+                                                                 center,
+                                                                 arcsecPerPix,
+                                                                 arcsecPerPix,
+                                                                 GetProjectionAngle(currentCenter));
             destinationPixel = destinationPixel + pointShift * 2;
 
-            // Azimuth
-            var originalAzimuthAltAz = PolarErrorDetermination.GetDestinationCoordinates(-PolarErrorDetermination.InitialMountAxisAzimuthError.Degree, 0, refractionParams).Transform(Epoch.J2000);
-            var originalAzimuthPixel = originalAzimuthAltAz.XYProjection(currentCenter.Coordinates, Center, ArcsecPerPix, ArcsecPerPix, currentCenter.Orientation);
+            var originalAzimuthAltAz = determination.GetDestinationCoordinates(-determination.InitialMountAxisAzimuthError.Degree,
+                                                                               0,
+                                                                               refractionParams).Transform(Epoch.J2000);
+            var originalAzimuthPixel = originalAzimuthAltAz.XYProjection(currentCenter.Coordinates,
+                                                                         center,
+                                                                         arcsecPerPix,
+                                                                         arcsecPerPix,
+                                                                         GetProjectionAngle(currentCenter));
             originalAzimuthPixel = originalAzimuthPixel + pointShift * 2;
 
             var lineOriginToAzimuth = Line.FromPoints(ToAccordPoint(originPixel), ToAccordPoint(originalAzimuthPixel));
-
-            var correctedAzimuthLine = Line.FromSlopeIntercept(lineOriginToAzimuth.Slope, (float)(Center.Y - lineOriginToAzimuth.Slope * Center.X));
-
+            var correctedAzimuthLine = Line.FromSlopeIntercept(lineOriginToAzimuth.Slope, (float)(center.Y - lineOriginToAzimuth.Slope * center.X));
             var lineAzimuthToDestination = Line.FromPoints(ToAccordPoint(originalAzimuthPixel), ToAccordPoint(destinationPixel));
+            var correctedAzimuthPixel = lineAzimuthToDestination.GetIntersectionWith(correctedAzimuthLine);
 
-            var correctedAzimuthPixel = lineAzimuthToDestination.GetIntersectionWith(correctedAzimuthLine); // az corrected position
+            var correctedAzimuthDistance = correctedAzimuthPixel.Value.DistanceTo(ToAccordPoint(center));
+            var originalAzimuthDistance = ToAccordPoint(originalAzimuthPixel).DistanceTo(ToAccordPoint(originPixel));
 
-            var correctedAzimuthDistance = correctedAzimuthPixel.Value.DistanceTo(ToAccordPoint(Center)); // az corrected
-            var originalAzimuthDistance = ToAccordPoint(originalAzimuthPixel).DistanceTo(ToAccordPoint(originPixel)); // az orig
-
-            // Altitude
-            var originalAltitudeAltAz = PolarErrorDetermination.GetDestinationCoordinates(0, -PolarErrorDetermination.InitialMountAxisAltitudeError.Degree, refractionParams).Transform(Epoch.J2000);
-            var originalAltitudePixel = originalAltitudeAltAz.XYProjection(currentCenter.Coordinates, Center, ArcsecPerPix, ArcsecPerPix, currentCenter.Orientation);
+            var originalAltitudeAltAz = determination.GetDestinationCoordinates(0,
+                                                                                -determination.InitialMountAxisAltitudeError.Degree,
+                                                                                refractionParams).Transform(Epoch.J2000);
+            var originalAltitudePixel = originalAltitudeAltAz.XYProjection(currentCenter.Coordinates,
+                                                                           center,
+                                                                           arcsecPerPix,
+                                                                           arcsecPerPix,
+                                                                           GetProjectionAngle(currentCenter));
             originalAltitudePixel = originalAltitudePixel + pointShift * 2;
 
             var lineOriginToAltitude = Line.FromPoints(ToAccordPoint(originPixel), ToAccordPoint(originalAltitudePixel));
-
-            var correctedAltitudeLine = Line.FromSlopeIntercept(lineOriginToAltitude.Slope, (float)(Center.Y - lineOriginToAltitude.Slope * Center.X));
-
+            var correctedAltitudeLine = Line.FromSlopeIntercept(lineOriginToAltitude.Slope, (float)(center.Y - lineOriginToAltitude.Slope * center.X));
             var lineAltitudeToDestination = Line.FromPoints(ToAccordPoint(originalAltitudePixel), ToAccordPoint(destinationPixel));
+            var correctedAltitudePixel = lineAltitudeToDestination.GetIntersectionWith(correctedAltitudeLine);
 
-            var correctedAltitudePixel = lineAltitudeToDestination.GetIntersectionWith(correctedAltitudeLine); // alt corrected pixel
+            var correctedAltitudeDistance = correctedAltitudePixel.Value.DistanceTo(ToAccordPoint(center));
+            var originalAltitudeDistance = ToAccordPoint(originalAltitudePixel).DistanceTo(ToAccordPoint(originPixel));
 
-            var correctedAltitudeDistance = correctedAltitudePixel.Value.DistanceTo(ToAccordPoint(Center)); // alt corrected
-            var originalAltitudeDistance = ToAccordPoint(originalAltitudePixel).DistanceTo(ToAccordPoint(originPixel)); // alt corrected
-
-
-            // Check if sign needs to be reversed
-
-            // Azimuth
             var originalAzimuthDirection = ToAccordPoint(destinationPixel) - ToAccordPoint(originalAltitudePixel);
             var correctedAzimuthDirection = ToAccordPoint(destinationPixel) - correctedAltitudePixel.Value;
-            // When dot product is positive, the angle between both vectors is smaller than 90°
             var azimuthSameDirection = (originalAzimuthDirection.X * correctedAzimuthDirection.X + originalAzimuthDirection.Y * correctedAzimuthDirection.Y) > 0;
+            var azSign = azimuthSameDirection ? 1 : -1;
 
-            var azSign = 1;
-            if (!azimuthSameDirection) {
-                azSign = -1;
-            }
-
-            // Altitude
             var originalAltitudeDirection = ToAccordPoint(destinationPixel) - ToAccordPoint(originalAzimuthPixel);
             var correctedAltitudeDirection = ToAccordPoint(destinationPixel) - correctedAzimuthPixel.Value;
-            // When dot product is positive, the angle between both vectors is smaller than 90°
             var altitudeSameDirection = (originalAltitudeDirection.X * correctedAltitudeDirection.X + originalAltitudeDirection.Y * correctedAltitudeDirection.Y) > 0;
+            var altSign = altitudeSameDirection ? 1 : -1;
 
-            var altSign = 1;
-            if (!altitudeSameDirection) {
-                altSign = -1;
+            var azimuthErrorDegrees = determination.InitialMountAxisAzimuthError.Degree * (azSign * correctedAzimuthDistance / originalAzimuthDistance);
+            var altitudeErrorDegrees = determination.InitialMountAxisAltitudeError.Degree * (altSign * correctedAltitudeDistance / originalAltitudeDistance);
+
+            var shift = referenceStar - center;
+            var current = new ErrorDetail(center,
+                                          ToPoint(correctedAltitudePixel.Value),
+                                          ToPoint(correctedAzimuthPixel.Value),
+                                          destinationPixel);
+            current.Shift(shift);
+
+            var initial = new ErrorDetail(originPixel,
+                                          originalAltitudePixel,
+                                          originalAzimuthPixel,
+                                          destinationPixel);
+            initial.Shift(shift);
+
+            return new ErrorDetailComputation(current,
+                                              initial,
+                                              azimuthErrorDegrees,
+                                              altitudeErrorDegrees);
+        }
+
+        internal ErrorDetailComputation BuildErrorDetailComputation(PolarErrorDetermination determination,
+                                                                    Point referenceStar,
+                                                                    Point center,
+                                                                    double arcsecPerPix,
+                                                                    RefractionParameters refractionParams) {
+            var currentCenter = determination.CurrentReferenceFrame;
+            var originPixel = determination.InitialReferenceFrame.Coordinates.XYProjection(currentCenter.Coordinates,
+                                                                                           center,
+                                                                                           arcsecPerPix,
+                                                                                           arcsecPerPix,
+                                                                                           GetProjectionAngle(currentCenter));
+
+            var pointShift = center - originPixel;
+            originPixel = originPixel + pointShift * 2;
+
+            Point ProjectDestination(double azimuthAngleDegrees, double altitudeAngleDegrees) {
+                var coordinates = determination.GetDestinationCoordinates(azimuthAngleDegrees,
+                                                                          altitudeAngleDegrees,
+                                                                          refractionParams)
+                    .Transform(Epoch.J2000);
+
+                return coordinates.XYProjection(currentCenter.Coordinates,
+                                                center,
+                                                arcsecPerPix,
+                                                arcsecPerPix,
+                                                GetProjectionAngle(currentCenter)) + pointShift * 2;
             }
 
-            // Error determination
+            var destinationPixel = ProjectDestination(-determination.InitialMountAxisAzimuthError.Degree,
+                                                      -determination.InitialMountAxisAltitudeError.Degree);
 
-            PolarErrorDetermination.CurrentMountAxisAzimuthError = Angle.ByDegree(PolarErrorDetermination.InitialMountAxisAzimuthError.Degree * (azSign * correctedAzimuthDistance / originalAzimuthDistance));
-            PolarErrorDetermination.CurrentMountAxisAltitudeError = Angle.ByDegree(PolarErrorDetermination.InitialMountAxisAltitudeError.Degree * (altSign * correctedAltitudeDistance / originalAltitudeDistance));
-            PolarErrorDetermination.CurrentMountAxisTotalError = Angle.ByDegree(Accord.Math.Tools.Hypotenuse(PolarErrorDetermination.CurrentMountAxisAltitudeError.Degree, PolarErrorDetermination.CurrentMountAxisAzimuthError.Degree));
+            var originalAzimuthPixel = ProjectDestination(-determination.InitialMountAxisAzimuthError.Degree, 0);
+            var correctedAzimuthPixel = Intersect(center,
+                                                  originalAzimuthPixel - originPixel,
+                                                  originalAzimuthPixel,
+                                                  destinationPixel - originalAzimuthPixel);
 
-            var errorDetail = new ErrorDetail(Center, ToPoint(correctedAltitudePixel.Value), ToPoint(correctedAzimuthPixel.Value), destinationPixel);
+            var originalAltitudePixel = ProjectDestination(0, -determination.InitialMountAxisAltitudeError.Degree);
+            var correctedAltitudePixel = Intersect(center,
+                                                   originalAltitudePixel - originPixel,
+                                                   originalAltitudePixel,
+                                                   destinationPixel - originalAltitudePixel);
 
-            //errorDetail.Shift(pointShift);
-            errorDetail.Shift(new System.Windows.Vector(ReferenceStar.X - Center.X, ReferenceStar.Y - Center.Y));
-            ErrorDetail = errorDetail;
+            var shift = referenceStar - center;
+            var current = new ErrorDetail(center,
+                                          correctedAltitudePixel,
+                                          correctedAzimuthPixel,
+                                          destinationPixel);
+            current.Shift(shift);
 
-            var errorDetail2 = new ErrorDetail(originPixel, originalAltitudePixel, originalAzimuthPixel, destinationPixel);
-            errorDetail2.Shift(new System.Windows.Vector(ReferenceStar.X - Center.X, ReferenceStar.Y - Center.Y));
-            ErrorDetail2 = errorDetail2;
+            var initial = new ErrorDetail(originPixel,
+                                          originalAltitudePixel,
+                                          originalAzimuthPixel,
+                                          destinationPixel);
+            initial.Shift(shift);
+
+            return new ErrorDetailComputation(
+                current,
+                initial
+            );
+        }
+
+        private static Point Intersect(Point firstPoint, System.Windows.Vector firstDirection, Point secondPoint, System.Windows.Vector secondDirection) {
+            var cross = Cross(firstDirection, secondDirection);
+            if (Math.Abs(cross) < 1e-12) {
+                throw new InvalidOperationException("Unable to build polar-alignment overlay because correction component lines are parallel.");
+            }
+
+            var distance = secondPoint - firstPoint;
+            var t = Cross(distance, secondDirection) / cross;
+            return firstPoint + firstDirection * t;
+        }
+
+        private static double Cross(System.Windows.Vector first, System.Windows.Vector second) {
+            return first.X * second.Y - first.Y * second.X;
+        }
+
+        public static Accord.Point ToAccordPoint(Point p) {
+            return new Accord.Point((float)p.X, (float)p.Y);
+        }
+
+        public static Point ToPoint(Accord.Point p) {
+            return new Point(p.X, p.Y);
+        }
+
+#pragma warning disable CS0618 // The legacy overlay/reacquisition projection was authored against Orientation.
+        private static double GetProjectionAngle(PlateSolveResult plateSolveResult) => plateSolveResult.Orientation;
+#pragma warning restore CS0618
+
+        private void ApplyErrorDetailComputation(ErrorDetailComputation overlay) {
+            if (overlay.HasErrorEstimate) {
+                var azimuthErrorDegrees = overlay.AzimuthErrorDegrees.Value;
+                var altitudeErrorDegrees = overlay.AltitudeErrorDegrees.Value;
+                PolarErrorDetermination.CurrentMountAxisAzimuthError = Angle.ByDegree(azimuthErrorDegrees);
+                PolarErrorDetermination.CurrentMountAxisAltitudeError = Angle.ByDegree(altitudeErrorDegrees);
+                PolarErrorDetermination.CurrentMountAxisTotalError = Angle.ByDegree(Accord.Math.Tools.Hypotenuse(altitudeErrorDegrees, azimuthErrorDegrees));
+                automatedAdjustmentController.UpdateObservation(azimuthErrorDegrees, altitudeErrorDegrees);
+                lastContinuousEstimateStable = true;
+            }
+
+            ErrorDetail = overlay.Current;
+            ErrorDetail2 = overlay.Initial;
 
             if (Properties.Settings.Default.LogError) {
                 if (logger == null) {
@@ -309,14 +497,6 @@ namespace NINA.Plugins.PolarAlignment {
               .CreateLogger();
         }
 
-        public Accord.Point ToAccordPoint(Point p) {
-            return new Accord.Point((float)p.X, (float)p.Y);
-        }
-
-        public Point ToPoint(Accord.Point p) {
-            return new Point(p.X, p.Y);
-        }
-
         public async Task<Point> GetClosestStarPosition(IRenderedImage image, Point reference, IProgress<ApplicationStatus> progress, CancellationToken token) {
             var detection = await GetStarDetection(image, progress, token);
 
@@ -344,7 +524,15 @@ namespace NINA.Plugins.PolarAlignment {
                         NoiseReduction = profileService.ActiveProfile.ImageSettings.NoiseReduction
                     };
 
-                    var detectionResult = await detection.Detect(image, image.Image.Format, detectionParams, progress, token);
+                    // Reference-star reacquisition is the last heavy post-solve step in the TPPA loop.
+                    // Some star-detection paths do noticeable synchronous work before yielding, so
+                    // invoke the detector from a background task and only marshal the finished result back.
+                    var detectionResult = await Task.Run(async () => await detection.Detect(image,
+                                                                                             image.Image.Format,
+                                                                                             detectionParams,
+                                                                                             progress,
+                                                                                             token).ConfigureAwait(false),
+                                                       token);
 
                     starDetection = new KeyValuePair<int, StarDetectionResult>(image.RawImageData.MetaData.Image.Id, detectionResult);
                 }
@@ -501,7 +689,9 @@ namespace NINA.Plugins.PolarAlignment {
 
 
     public class PolarErrorDetermination : BaseINPC {
-        public PolarErrorDetermination(PlateSolveResult referenceFrame, Position position1, Position position2, Position position3, Angle latitude, Angle longitude, double elevation, RefractionParameters refractionParameters, bool correctForRefraction, double declinationSpreadArcsec) {
+        private const double EastWestWarningThresholdDegrees = 5.0;
+
+        public PolarErrorDetermination(PlateSolveResult referenceFrame, Position position1, Position position2, Position position3, Angle latitude, Angle longitude, double elevation, RefractionParameters refractionParameters, bool correctForRefraction, double declinationSpreadArcsec = 0) {
             Latitude = latitude;
             Longitude = longitude;
             Elevation = elevation;
@@ -524,6 +714,7 @@ namespace NINA.Plugins.PolarAlignment {
             InitialMountAxisErrorPosition = new Position(planeVector, Latitude, Longitude, Elevation);
 
             CalculateMountAxisError(refractionParameters, correctForRefraction);
+            UpdateCurrentCorrectionFieldWarnings(refractionParameters);
         }
 
         public Angle Latitude { get; }
@@ -586,6 +777,38 @@ namespace NINA.Plugins.PolarAlignment {
 
         public bool InitialErrorHuge {
             get => InitialMountAxisTotalError.Degree > 10;
+        }
+
+        private double currentCorrectionFieldAzimuthDegrees;
+        public double CurrentCorrectionFieldAzimuthDegrees {
+            get => currentCorrectionFieldAzimuthDegrees;
+            private set {
+                currentCorrectionFieldAzimuthDegrees = value;
+                RaisePropertyChanged();
+                RaisePropertyChanged(nameof(CurrentCorrectionFieldDistanceToEastWestDegrees));
+                RaisePropertyChanged(nameof(CurrentCorrectionFieldNearEastWest));
+            }
+        }
+
+        private double currentCorrectionFieldAltitudeDegrees;
+        public double CurrentCorrectionFieldAltitudeDegrees {
+            get => currentCorrectionFieldAltitudeDegrees;
+            private set {
+                currentCorrectionFieldAltitudeDegrees = value;
+                RaisePropertyChanged();
+            }
+        }
+
+        public double CurrentCorrectionFieldDistanceToEastWestDegrees {
+            get {
+                var distanceToEast = Math.Abs(NormalizeSignedDegrees(CurrentCorrectionFieldAzimuthDegrees - 90.0));
+                var distanceToWest = Math.Abs(NormalizeSignedDegrees(CurrentCorrectionFieldAzimuthDegrees - 270.0));
+                return Math.Min(distanceToEast, distanceToWest);
+            }
+        }
+
+        public bool CurrentCorrectionFieldNearEastWest {
+            get => CurrentReferenceFrame?.Coordinates != null && CurrentCorrectionFieldDistanceToEastWestDegrees <= EastWestWarningThresholdDegrees;
         }
 
         public string CurrentMountAxisAltitudeErrorDirection {
@@ -671,21 +894,50 @@ namespace NINA.Plugins.PolarAlignment {
             CurrentReferenceFrame = InitialReferenceFrame;
         }
 
+        internal void UpdateCurrentCorrectionFieldWarnings(RefractionParameters refractionParameters) {
+            if (CurrentReferenceFrame?.Coordinates == null) {
+                CurrentCorrectionFieldAzimuthDegrees = double.NaN;
+                CurrentCorrectionFieldAltitudeDegrees = double.NaN;
+                return;
+            }
+
+            refractionParameters = refractionParameters ?? RefractionParameters.GetRefractionParameters();
+            var observationTime = CurrentReferenceFrame.Coordinates.DateTime.Now;
+            var topocentric = CurrentReferenceFrame.Coordinates.Transform(Latitude,
+                                                                         Longitude,
+                                                                         Elevation,
+                                                                         refractionParameters.PressureHPa,
+                                                                         refractionParameters.Temperature,
+                                                                         refractionParameters.RelativeHumidity,
+                                                                         refractionParameters.Wavelength,
+                                                                         observationTime);
+
+            CurrentCorrectionFieldAzimuthDegrees = topocentric.Azimuth.Degree;
+            CurrentCorrectionFieldAltitudeDegrees = topocentric.Altitude.Degree;
+        }
+
+        private static double NormalizeSignedDegrees(double degrees) {
+            while (degrees > 180.0) {
+                degrees -= 360.0;
+            }
+            while (degrees < -180.0) {
+                degrees += 360.0;
+            }
+            return degrees;
+        }
+
         public TopocentricCoordinates GetDestinationCoordinates(double azAngle, double altAngle, RefractionParameters refractionParameters) {
-            TopocentricCoordinates referenceTopo = InitialReferenceFrame.Coordinates.Transform(Latitude, Longitude, Elevation);
+            var referenceTopocentric = InitialReferenceFrame.Coordinates.Transform(Latitude, Longitude, Elevation);
+            var referenceVector = Vector3.CoordinatesToUnitVector(referenceTopocentric);
 
-            var vRef = Vector3.CoordinatesToUnitVector(referenceTopo);
+            var azimuthRotation = Angle.ByDegree(azAngle);
+            var altitudeRotation = Angle.ByDegree(altAngle);
 
-            var azRotation = Angle.ByDegree(azAngle);
-            var altRotation = Angle.ByDegree(altAngle);
+            var azimuthDestination = Vector3.RotateByRodrigues(referenceVector, new Vector3(0, 0, 1), azimuthRotation);
+            var altitudeAxis = Vector3.RotateByRodrigues(new Vector3(0, 1, 0), new Vector3(0, 0, 1), azimuthRotation);
+            var finalDestination = Vector3.RotateByRodrigues(azimuthDestination, altitudeAxis, altitudeRotation);
 
-            //First rotate by azimuth, then from the point at azimuth rotate further by altitude to get to the final position
-            var azDest = Vector3.RotateByRodrigues(vRef, new Vector3(0, 0, 1), azRotation);
-            var rotatedAltAxis = Vector3.RotateByRodrigues(new Vector3(0, 1, 0), new Vector3(0, 0, 1), azRotation);
-
-            var finalDest = Vector3.RotateByRodrigues(azDest, rotatedAltAxis, altRotation); //combination of first az then applied alt
-
-            return finalDest.ToTopocentric(Latitude, Longitude, Elevation);
+            return finalDestination.ToTopocentric(Latitude, Longitude, Elevation);
         }
 
     }

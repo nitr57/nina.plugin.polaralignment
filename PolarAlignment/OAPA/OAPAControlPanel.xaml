@@ -7,6 +7,13 @@
              xmlns:local="clr-namespace:NINA.Plugins.PolarAlignment.OAPA"
              mc:Ignorable="d">
 
+    <UserControl.Resources>
+        <s:String x:Key="OAPASpeedToolTip">Speed value passed to OAPA move commands for this axis.</s:String>
+        <s:String x:Key="OAPAGearRatioToolTip">Scale factor used when converting between OAPA motor units and the axis units shown by TPPA.</s:String>
+        <s:String x:Key="OAPARunCurrentToolTip">Run-current value, in milliamps, sent to the OAPA controller for this axis.</s:String>
+        <s:String x:Key="OAPAHoldPercentToolTip">Hold-current percentage sent to the OAPA controller for this axis.</s:String>
+    </UserControl.Resources>
+
     <StackPanel>
         <!-- Motor Settings -->
         <Grid>
@@ -29,8 +36,8 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="5">Speed</TextBlock>
-                    <ComboBox Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Margin="5" SelectedValue="{Binding XSpeed}">
+                    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="5" ToolTip="{StaticResource OAPASpeedToolTip}">Speed</TextBlock>
+                    <ComboBox Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Margin="5" SelectedValue="{Binding XSpeed}" ToolTip="{StaticResource OAPASpeedToolTip}">
                         <ComboBox.ItemsSource>
                             <x:Array Type="{x:Type s:Int32}">
                                 <s:Int32>100</s:Int32>
@@ -46,13 +53,13 @@
                             </x:Array>
                         </ComboBox.ItemsSource>
                     </ComboBox>
-                    <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Margin="5">GearRatio</TextBlock>
-                    <TextBox Grid.Row="0" Grid.Column="3" VerticalAlignment="Center" Margin="5" Text="{Binding XGearRatio}" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Margin="5" ToolTip="{StaticResource OAPAGearRatioToolTip}">GearRatio</TextBlock>
+                    <TextBox Grid.Row="0" Grid.Column="3" VerticalAlignment="Center" Margin="5" Text="{Binding XGearRatio}" ToolTip="{StaticResource OAPAGearRatioToolTip}" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="5">Run (mA)</TextBlock>
-                    <TextBox Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Margin="5" Text="{Binding XRunCurrent}" />
-                    <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Margin="5">Hold %</TextBlock>
-                    <TextBox Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" Margin="5" Text="{Binding XHoldPercent}" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="5" ToolTip="{StaticResource OAPARunCurrentToolTip}">Run (mA)</TextBlock>
+                    <TextBox Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Margin="5" Text="{Binding XRunCurrent}" ToolTip="{StaticResource OAPARunCurrentToolTip}" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Margin="5" ToolTip="{StaticResource OAPAHoldPercentToolTip}">Hold %</TextBlock>
+                    <TextBox Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" Margin="5" Text="{Binding XHoldPercent}" ToolTip="{StaticResource OAPAHoldPercentToolTip}" />
                 </Grid>
             </GroupBox>
 
@@ -70,8 +77,8 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="5">Speed</TextBlock>
-                    <ComboBox Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Margin="5" SelectedValue="{Binding YSpeed}">
+                    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="5" ToolTip="{StaticResource OAPASpeedToolTip}">Speed</TextBlock>
+                    <ComboBox Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Margin="5" SelectedValue="{Binding YSpeed}" ToolTip="{StaticResource OAPASpeedToolTip}">
                         <ComboBox.ItemsSource>
                             <x:Array Type="{x:Type s:Int32}">
                                 <s:Int32>100</s:Int32>
@@ -87,19 +94,32 @@
                             </x:Array>
                         </ComboBox.ItemsSource>
                     </ComboBox>
-                    <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Margin="5">GearRatio</TextBlock>
-                    <TextBox Grid.Row="0" Grid.Column="3" VerticalAlignment="Center" Margin="5" Text="{Binding YGearRatio}" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Margin="5" ToolTip="{StaticResource OAPAGearRatioToolTip}">GearRatio</TextBlock>
+                    <TextBox Grid.Row="0" Grid.Column="3" VerticalAlignment="Center" Margin="5" Text="{Binding YGearRatio}" ToolTip="{StaticResource OAPAGearRatioToolTip}" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="5">Run (mA)</TextBlock>
-                    <TextBox Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Margin="5" Text="{Binding YRunCurrent}" />
-                    <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Margin="5">Hold %</TextBlock>
-                    <TextBox Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" Margin="5" Text="{Binding YHoldPercent}" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="5" ToolTip="{StaticResource OAPARunCurrentToolTip}">Run (mA)</TextBlock>
+                    <TextBox Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Margin="5" Text="{Binding YRunCurrent}" ToolTip="{StaticResource OAPARunCurrentToolTip}" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Margin="5" ToolTip="{StaticResource OAPAHoldPercentToolTip}">Hold %</TextBlock>
+                    <TextBox Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" Margin="5" Text="{Binding YHoldPercent}" ToolTip="{StaticResource OAPAHoldPercentToolTip}" />
                 </Grid>
             </GroupBox>
         </Grid>
 
-        <!-- Manual Control Panel - Only Visible When Connected -->
-        <Grid Margin="0,5,0,0" Visibility="{Binding Connected, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <!-- Manual Control Panel - Only Visible When Connected And Manual -->
+        <Grid Margin="0,5,0,0">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Connected}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding DoAutomatedAdjustments}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition />

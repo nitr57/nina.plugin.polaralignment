@@ -499,8 +499,14 @@ namespace NINA.Plugins.PolarAlignment {
 
         public async Task<Point> GetClosestStarPosition(IRenderedImage image, Point reference, IProgress<ApplicationStatus> progress, CancellationToken token) {
             var detection = await GetStarDetection(image, progress, token);
+            token.ThrowIfCancellationRequested();
+            var stars = detection?.StarList;
+            if (stars == null) {
+                Logger.Warning("Star detection did not return a star list. Using previous reference point instead");
+                return reference;
+            }
 
-            var closestStarToReference = detection.StarList
+            var closestStarToReference = stars
                 .GroupBy(p => Math.Pow(reference.X - p.Position.X, 2) + Math.Pow(reference.Y - p.Position.Y, 2))
                 .OrderBy(p => p.Key)
                 .FirstOrDefault()?.FirstOrDefault();

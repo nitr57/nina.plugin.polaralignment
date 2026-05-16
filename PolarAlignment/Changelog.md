@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.2.6.1
+- Fixed a continuous-solver correction-loop failure when star detection returns no star list while reacquiring the reference star.
+
 ## Version 2.2.6.0
 - Reworked the plugin options page into tabbed sections with built-in workflow, accuracy, warning-state, and troubleshooting guidance.
 - Added descriptive tooltips for plugin settings and supported hardware adjustment panels.

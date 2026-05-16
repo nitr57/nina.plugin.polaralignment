@@ -636,6 +636,7 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                     return;
                 }
             } catch (OperationCanceledException) {
+                throw;
             } catch (Exception ex) {
                 Logger.Error(ex);
                 Notification.ShowError("Three Point Polar Alignment failed - " + ex.Message);
@@ -773,6 +774,8 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                                                                          new PrepareImageParameters(true, false),
                                                                          token,
                                                                          progress).ConfigureAwait(false);
+                } catch (OperationCanceledException) {
+                    throw;
                 } catch (Exception ex) {
                     Logger.Error(ex);
                 }

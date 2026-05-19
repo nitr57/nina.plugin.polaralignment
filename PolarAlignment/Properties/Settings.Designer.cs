@@ -205,6 +205,18 @@ namespace NINA.Plugins.PolarAlignment.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool UseContinuousErrorEstimator {
+            get {
+                return ((bool)(this["UseContinuousErrorEstimator"]));
+            }
+            set {
+                this["UseContinuousErrorEstimator"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("0")]
         public double AlignmentTolerance {
             get {

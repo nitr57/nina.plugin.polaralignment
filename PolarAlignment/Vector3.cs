@@ -34,10 +34,17 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public TopocentricCoordinates ToTopocentric(Angle latitude, Angle longitude, double elevation, ICustomDateTime time) {
-            if (X == 0 && Y == 0) { return new TopocentricCoordinates(Angle.ByDegree(0), Angle.ByDegree(90), latitude, longitude, elevation, time); }
+            var horizontalLength = Math.Sqrt(X * X + Y * Y);
+            if (horizontalLength == 0 && Z == 0) {
+                return new TopocentricCoordinates(Angle.ByDegree(0), Angle.ByDegree(0), latitude, longitude, elevation, time);
+            }
 
-            var azRad = Y == 0 ? 0 : -Math.Atan2(Y, X);
-            var altRad = (Math.PI / 2d) - Math.Acos(Z);
+            var azRad = Math.Atan2(-Y, X);
+            if (azRad < 0) {
+                azRad += 2d * Math.PI;
+            }
+
+            var altRad = Math.Atan2(Z, horizontalLength);
 
             return new TopocentricCoordinates(Angle.ByRadians(azRad), Angle.ByRadians(altRad), latitude, longitude, elevation, time);
         }

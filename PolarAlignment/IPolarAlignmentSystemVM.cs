@@ -9,6 +9,8 @@ namespace NINA.Plugins.PolarAlignment {
 
         Task Connect();
         void Disconnect();
+        Task<bool> TryNudgeX(float position, CancellationToken token);
+        Task<bool> TryNudgeY(float position, CancellationToken token);
         Task NudgeX(float position, CancellationToken token);
         Task NudgeY(float position, CancellationToken token);
         void RaiseAllPropertiesChanged();

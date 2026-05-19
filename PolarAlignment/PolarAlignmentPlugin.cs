@@ -108,6 +108,17 @@ namespace NINA.Plugins.PolarAlignment {
             }
         }
 
+        public bool UseContinuousErrorEstimator {
+            get {
+                return Properties.Settings.Default.UseContinuousErrorEstimator;
+            }
+            set {
+                Properties.Settings.Default.UseContinuousErrorEstimator = value;
+                CoreUtil.SaveSettings(Properties.Settings.Default);
+                RaisePropertyChanged();
+            }
+        }
+
         public double DefaultMoveRate {
             get {
                 return Properties.Settings.Default.DefaultMoveRate;

@@ -87,6 +87,10 @@ namespace NINA.Plugins.PolarAlignment {
 
         [RelayCommand(CanExecute = (nameof(IsNotMoving)))]
         public async Task NudgeX(float position, CancellationToken token) {
+            await TryNudgeX(position, token);
+        }
+
+        public async Task<bool> TryNudgeX(float position, CancellationToken token) {
             try {
                 if (ReverseAzimuth) { position = position * -1; }
                 await Application.Current.Dispatcher.BeginInvoke(() => IsNotMoving = false);
@@ -96,11 +100,13 @@ namespace NINA.Plugins.PolarAlignment {
                 await upa.MoveRelative(Axis.XAxis, XSpeed, position, token).ConfigureAwait(false);
                 var currentDirection = upa.XLastDirection;
                 await ClearBacklash(lastDirection, currentDirection, token);
+                return true;
             } catch (Exception ex) {
                 Logger.Error(ex);
                 if (ex is TimeoutException) {
                     Notification.ShowError($"Movement timeout: {ex.Message}");
                 }
+                return false;
             } finally {
                 await Application.Current.Dispatcher.BeginInvoke(() => IsNotMoving = true);
             }
@@ -108,17 +114,23 @@ namespace NINA.Plugins.PolarAlignment {
 
         [RelayCommand(CanExecute = (nameof(IsNotMoving)))]
         public async Task NudgeY(float position, CancellationToken token) {
+            await TryNudgeY(position, token);
+        }
+
+        public async Task<bool> TryNudgeY(float position, CancellationToken token) {
             try {
                 if (ReverseAltitude) { position = position * -1; }
                 await Application.Current.Dispatcher.BeginInvoke(() => IsNotMoving = false);
 
                 Logger.Info($"Nudging {SystemName} along Y axis by {position}");
                 await upa.MoveRelative(Axis.YAxis, YSpeed, position, token).ConfigureAwait(false);
+                return true;
             } catch (Exception ex) {
                 Logger.Error(ex);
                 if (ex is TimeoutException) {
                     Notification.ShowError($"Movement timeout: {ex.Message}");
                 }
+                return false;
             } finally {
                 await Application.Current.Dispatcher.BeginInvoke(() => IsNotMoving = true);
             }
@@ -156,8 +168,9 @@ namespace NINA.Plugins.PolarAlignment {
             if (lastDirection != currentDirection) {
                 if (Math.Abs(XBacklashCompensation) > 0) {
                     Logger.Info("Direction changed. Clearing backlash");
-                    await upa.MoveRelative(Axis.XAxis, XSpeed, -XBacklashCompensation, token).ConfigureAwait(false);
-                    await upa.MoveRelative(Axis.XAxis, XSpeed, XBacklashCompensation, token).ConfigureAwait(false);
+                    var sequence = BacklashCompensationPlanner.CreateSequence(XBacklashCompensation, currentDirection);
+                    await upa.MoveRelative(Axis.XAxis, XSpeed, sequence.FirstMove, token).ConfigureAwait(false);
+                    await upa.MoveRelative(Axis.XAxis, XSpeed, sequence.SecondMove, token).ConfigureAwait(false);
                 }
             }
         }
@@ -188,14 +201,21 @@ namespace NINA.Plugins.PolarAlignment {
             var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(300));
             try {
                 while (await timer.WaitForNextTickAsync(token) && !token.IsCancellationRequested) {
-                    await upa.RefreshStatus(token);
-                    PositionX = upa.XPosition1;
-                    PositionY = upa.YPosition1;
+                    if (IsNotMoving) {
+                        await upa.RefreshStatus(token);
+                    }
+                    await Application.Current.Dispatcher.BeginInvoke(UpdatePositions);
                 }
             } catch (OperationCanceledException) {
             } catch (Exception ex) {
                 Logger.Error(ex);
             }
+        }
+
+        private void UpdatePositions() {
+            if (upa == null) { return; }
+            PositionX = upa.XPosition1;
+            PositionY = upa.YPosition1;
         }
     }
 }

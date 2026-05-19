@@ -13,7 +13,7 @@
     <Description>Three Point Polar Alignment almost anywhere in the sky</Description>
     <Copyright>Copyright ©  2021-2025</Copyright>
     <DefaultItemExcludes Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))">$(DefaultItemExcludes);**/*.xaml.cs;**/*.xaml</DefaultItemExcludes>
-    <Version>2.2.5.0</Version>
+    <Version>2.2.6.1</Version>
   </PropertyGroup>
   <ItemGroup Condition="!$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))">
     <PackageReference Include="NINA.Plugin" Version="3.1.2.9001" />    

@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 2.2.6.2
+- Fixed TPPA cancellation during plate solving so skipping the sequence item does not surface ASTAP sidecar cleanup errors.
+
 ## Version 2.2.6.1
 - Fixed a continuous-solver correction-loop failure when star detection returns no star list while reacquiring the reference star.
 

@@ -800,10 +800,14 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                     };
 
                     progress.Report(new ApplicationStatus() { Status = $"Solving image..." });
-                    result = await imageSolver.Solve(image.RawImageData,
-                                                     parameter,
-                                                     progress,
-                                                     token).ConfigureAwait(false);
+                    try {
+                        result = await imageSolver.Solve(image.RawImageData,
+                                                         parameter,
+                                                         progress,
+                                                         token).ConfigureAwait(false);
+                    } catch (Exception ex) when (token.IsCancellationRequested) {
+                        throw new OperationCanceledException("Plate solve was cancelled.", ex, token);
+                    }
                     if (!result.Success) {
                         usedSearchRadius += searchRadiusIncrementOnFailure;
                         await CoreUtil.Wait(TimeSpan.FromSeconds(1), token, progress, "Plate solve failed. Retrying...");

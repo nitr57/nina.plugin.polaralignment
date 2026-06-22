@@ -592,7 +592,13 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                                         correlatedGuid,
                                         altitudeError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError.Degree,
                                         azimuthError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError.Degree,
-                                        totalError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError.Degree
+                                        totalError: TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError.Degree,
+                                        initialErrorLarge: TPAPAVM.PolarErrorDetermination.InitialErrorLarge,
+                                        initialErrorHuge: TPAPAVM.PolarErrorDetermination.InitialErrorHuge,
+                                        declinationSpreadLarge: TPAPAVM.PolarErrorDetermination.DeclinationSpreadLarge,
+                                        declinationSpreadArcsec: TPAPAVM.PolarErrorDetermination.DeclinationSpreadArcsec,
+                                        nearEastWest: TPAPAVM.PolarErrorDetermination.CurrentCorrectionFieldNearEastWest,
+                                        distanceToEastWest: TPAPAVM.PolarErrorDetermination.CurrentCorrectionFieldDistanceToEastWestDegrees
                                     )
                                 );
 
@@ -1081,7 +1087,10 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
         public object Content { get; } = status;
     }
     
-    public class PolarAlignmentErrorMessage(Guid correlatedGuid, double altitudeError, double azimuthError, double totalError) : IMessage {
+    public class PolarAlignmentErrorMessage(Guid correlatedGuid, double altitudeError, double azimuthError, double totalError,
+        bool initialErrorLarge = false, bool initialErrorHuge = false,
+        bool declinationSpreadLarge = false, double declinationSpreadArcsec = 0,
+        bool nearEastWest = false, double distanceToEastWest = double.NaN) : IMessage {
 
         public Guid SenderId => Guid.Parse(PolarAlignmentPlugin.PluginId);
 
@@ -1104,7 +1113,13 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
         public object Content { get; } = new {
             AzimuthError = azimuthError,
             AltitudeError = altitudeError,
-            TotalError = totalError
+            TotalError = totalError,
+            InitialErrorLarge = initialErrorLarge,
+            InitialErrorHuge = initialErrorHuge,
+            DeclinationSpreadLarge = declinationSpreadLarge,
+            DeclinationSpreadArcsec = declinationSpreadArcsec,
+            NearEastWest = nearEastWest,
+            DistanceToEastWest = distanceToEastWest,
         };
     }
 }

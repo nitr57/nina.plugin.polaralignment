@@ -117,6 +117,16 @@ namespace NINA.Plugins.PolarAlignment.Dockables {
         public ICommand ResumeCommand { get; }
         public ICommand CancelExecuteCommand { get; }
 
+        private bool isRunning;
+
+        public bool IsRunning {
+            get => isRunning;
+            private set {
+                isRunning = value;
+                RaisePropertyChanged();
+            }
+        }
+
         public override bool IsTool { get; } = true;
 
         private bool optionsExpanded;
@@ -133,6 +143,7 @@ namespace NINA.Plugins.PolarAlignment.Dockables {
 
         public async Task<bool> Execute(IProgress<ApplicationStatus> externalProgress, CancellationToken token) {
             try {
+                IsRunning = true;
                 OptionsExpanded = false;
                 cameraMediator.RegisterCaptureBlock(this);
                 PolarAlignment.ResetProgress();
@@ -148,6 +159,7 @@ namespace NINA.Plugins.PolarAlignment.Dockables {
                 cameraMediator.ReleaseCaptureBlock(this);
                 externalProgress?.Report(GetStatus(string.Empty));
                 (PolarAlignment as Instructions.PolarAlignment).TPAPAVM = new TPAPAVM(profileService, weatherDataMediator);
+                IsRunning = false;
             }
             return false;
         }

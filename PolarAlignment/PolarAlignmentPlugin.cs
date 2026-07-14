@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.Composition;
@@ -15,25 +15,40 @@ using NINA.Plugin;
 using NINA.Plugin.Interfaces;
 using NINA.Plugins.PolarAlignment.Avalon;
 using NINA.Plugins.PolarAlignment.OAPA;
+using NINA.Plugins.PolarAlignment.OAT;
 using NINA.Profile;
 using NINA.Profile.Interfaces;
 
 namespace NINA.Plugins.PolarAlignment {
     [Export(typeof(IPluginManifest))]
     public class PolarAlignmentPlugin : PluginBase, INotifyPropertyChanged {
-        public static UniversalPolarAlignmentVM UniversalPolarAlignmentVM { get; private set; }
+        /// <summary>
+        /// Live singleton instance, cached at construction time so that other components
+        /// (e.g. the Touch-N-Stars REST controller) can write settings THROUGH this VM's own
+        /// property setters instead of poking Properties.Settings.Default directly via reflection.
+        /// Writing through the wrapper properties keeps NINA's own Options WPF page (and any
+        /// other live binding to this instance) in sync via RaisePropertyChanged — bypassing it
+        /// leaves stale cached values in any open WPF binding, which can later get pushed back
+        /// and silently clobber the REST-driven change.
+        /// </summary>
+        public static PolarAlignmentPlugin Instance { get; private set; }
+
+        public static UniversalPolarAlignmentVM     UniversalPolarAlignmentVM     { get; private set; }
         public static UniversalPolarAlignmentOAPAVM UniversalPolarAlignmentOAPAVM { get; private set; }
+        public static OATAlignmentVM                OATAlignmentVM                { get; private set; }
 
         public static IPolarAlignmentSystemVM ActiveAlignmentSystemVM =>
             Properties.Settings.Default.SelectedPolarAlignmentSystem switch {
                 "UPAS" => UniversalPolarAlignmentVM,
                 "OAPA" => UniversalPolarAlignmentOAPAVM,
-                _ => null
+                "OAT"  => OATAlignmentVM,
+                _      => null
             };
 
         public PolarAlignmentSystemType SelectedPolarAlignmentSystem {
             get {
-                return Enum.TryParse<PolarAlignmentSystemType>(Properties.Settings.Default.SelectedPolarAlignmentSystem, out var result)
+                return Enum.TryParse<PolarAlignmentSystemType>(
+                    Properties.Settings.Default.SelectedPolarAlignmentSystem, out var result)
                     ? result : PolarAlignmentSystemType.None;
             }
             set {
@@ -43,13 +58,15 @@ namespace NINA.Plugins.PolarAlignment {
                 RaisePropertyChanged(nameof(IsSystemSelected));
                 RaisePropertyChanged(nameof(IsUPASSelected));
                 RaisePropertyChanged(nameof(IsOAPASelected));
+                RaisePropertyChanged(nameof(IsOATSelected));
                 RaisePropertyChanged(nameof(ActiveSystem));
             }
         }
 
         public bool IsSystemSelected => SelectedPolarAlignmentSystem != PolarAlignmentSystemType.None;
-        public bool IsUPASSelected => SelectedPolarAlignmentSystem == PolarAlignmentSystemType.UPAS;
-        public bool IsOAPASelected => SelectedPolarAlignmentSystem == PolarAlignmentSystemType.OAPA;
+        public bool IsUPASSelected   => SelectedPolarAlignmentSystem == PolarAlignmentSystemType.UPAS;
+        public bool IsOAPASelected   => SelectedPolarAlignmentSystem == PolarAlignmentSystemType.OAPA;
+        public bool IsOATSelected    => SelectedPolarAlignmentSystem == PolarAlignmentSystemType.OAT;
 
         /// <summary>Instance wrapper for XAML binding with PropertyChanged support.</summary>
         public IPolarAlignmentSystemVM ActiveSystem => ActiveAlignmentSystemVM;
@@ -58,14 +75,16 @@ namespace NINA.Plugins.PolarAlignment {
 
         [ImportingConstructor]
         public PolarAlignmentPlugin(IProfileService profileService) {
+            Instance = this;
             if (Properties.Settings.Default.UpdateSettings) {
                 Properties.Settings.Default.Upgrade();
                 Properties.Settings.Default.UpdateSettings = false;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
             }
             ResetSettingsCommand = new GalaSoft.MvvmLight.Command.RelayCommand(ResetSettings);
-            UniversalPolarAlignmentVM = new UniversalPolarAlignmentVM(profileService);
+            UniversalPolarAlignmentVM     = new UniversalPolarAlignmentVM(profileService);
             UniversalPolarAlignmentOAPAVM = new UniversalPolarAlignmentOAPAVM(profileService);
+            OATAlignmentVM                = new OATAlignmentVM(profileService);
             PluginId = this.Identifier;
         }
 
@@ -73,23 +92,25 @@ namespace NINA.Plugins.PolarAlignment {
 
         private void ResetSettings() {
             try {
-                if(MyMessageBox.Show($"This will reset all TPPA settings to their defaults. {Environment.NewLine}Are you sure?", "Reset All Settings", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxResult.No) == System.Windows.MessageBoxResult.Yes) {
+                if (MyMessageBox.Show(
+                        $"This will reset all TPPA settings to their defaults. {Environment.NewLine}Are you sure?",
+                        "Reset All Settings",
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxResult.No) == System.Windows.MessageBoxResult.Yes) {
                     Properties.Settings.Default.Reset();
                     CoreUtil.SaveSettings(Properties.Settings.Default);
                     RaisePropertyChanged(null);
                     UniversalPolarAlignmentVM.RaiseAllPropertiesChanged();
                     UniversalPolarAlignmentOAPAVM.RaiseAllPropertiesChanged();
+                    OATAlignmentVM.RaiseAllPropertiesChanged();
                 }
-            } catch(Exception ex) {
+            } catch (Exception ex) {
                 Logger.Error(ex);
             }
-            
         }
 
         public bool DefaultEastDirection {
-            get {
-                return Properties.Settings.Default.DefaultEastDirection;
-            }
+            get => Properties.Settings.Default.DefaultEastDirection;
             set {
                 Properties.Settings.Default.DefaultEastDirection = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -98,9 +119,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public bool RefractionAdjustment {
-            get {
-                return Properties.Settings.Default.RefractionAdjustment;
-            }
+            get => Properties.Settings.Default.RefractionAdjustment;
             set {
                 Properties.Settings.Default.RefractionAdjustment = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -109,9 +128,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public bool UseContinuousErrorEstimator {
-            get {
-                return Properties.Settings.Default.UseContinuousErrorEstimator;
-            }
+            get => Properties.Settings.Default.UseContinuousErrorEstimator;
             set {
                 Properties.Settings.Default.UseContinuousErrorEstimator = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -120,9 +137,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public double DefaultMoveRate {
-            get {
-                return Properties.Settings.Default.DefaultMoveRate;
-            }
+            get => Properties.Settings.Default.DefaultMoveRate;
             set {
                 Properties.Settings.Default.DefaultMoveRate = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -131,9 +146,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public int DefaultTargetDistance {
-            get {
-                return Properties.Settings.Default.DefaultTargetDistance;
-            }
+            get => Properties.Settings.Default.DefaultTargetDistance;
             set {
                 Properties.Settings.Default.DefaultTargetDistance = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -142,20 +155,16 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public double DefaultSearchRadius {
-            get {
-                return Properties.Settings.Default.DefaultSearchRadius;
-            }
+            get => Properties.Settings.Default.DefaultSearchRadius;
             set {
-                Properties.Settings.Default.DefaultSearchRadius = Math.Max(30, Math.Min(180, value)); ;
+                Properties.Settings.Default.DefaultSearchRadius = Math.Max(30, Math.Min(180, value));
                 CoreUtil.SaveSettings(Properties.Settings.Default);
                 RaisePropertyChanged();
             }
         }
 
         public double DefaultAltitudeOffset {
-            get {
-                return Properties.Settings.Default.DefaultAltitudeOffset;
-            }
+            get => Properties.Settings.Default.DefaultAltitudeOffset;
             set {
                 Properties.Settings.Default.DefaultAltitudeOffset = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -164,9 +173,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public double DefaultAzimuthOffset {
-            get {
-                return Properties.Settings.Default.DefaultAzimuthOffset;
-            }
+            get => Properties.Settings.Default.DefaultAzimuthOffset;
             set {
                 Properties.Settings.Default.DefaultAzimuthOffset = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -175,20 +182,16 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public double MoveTimeoutFactor {
-            get {
-                return Properties.Settings.Default.MoveTimeoutFactor;
-            }
+            get => Properties.Settings.Default.MoveTimeoutFactor;
             set {
                 Properties.Settings.Default.MoveTimeoutFactor = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
                 RaisePropertyChanged();
             }
         }
-        
+
         public Color AltitudeErrorColor {
-            get {
-                return Properties.Settings.Default.AltitudeErrorColor;
-            }
+            get => Properties.Settings.Default.AltitudeErrorColor;
             set {
                 Properties.Settings.Default.AltitudeErrorColor = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -197,9 +200,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public Color AzimuthErrorColor {
-            get {
-                return Properties.Settings.Default.AzimuthErrorColor;
-            }
+            get => Properties.Settings.Default.AzimuthErrorColor;
             set {
                 Properties.Settings.Default.AzimuthErrorColor = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -208,30 +209,25 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public Color TotalErrorColor {
-            get {
-                return Properties.Settings.Default.TotalErrorColor;
-            }
+            get => Properties.Settings.Default.TotalErrorColor;
             set {
                 Properties.Settings.Default.TotalErrorColor = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
                 RaisePropertyChanged();
             }
         }
-        
+
         public Color TargetCircleColor {
-            get {
-                return Properties.Settings.Default.TargetCircleColor;
-            }
+            get => Properties.Settings.Default.TargetCircleColor;
             set {
                 Properties.Settings.Default.TargetCircleColor = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
                 RaisePropertyChanged();
             }
         }
+
         public Color SuccessColor {
-            get {
-                return Properties.Settings.Default.SuccessColor;
-            }
+            get => Properties.Settings.Default.SuccessColor;
             set {
                 Properties.Settings.Default.SuccessColor = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -240,11 +236,9 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public double AlignmentTolerance {
-            get {
-                return Properties.Settings.Default.AlignmentTolerance;
-            }
+            get => Properties.Settings.Default.AlignmentTolerance;
             set {
-                if(value < 0) { value = 0; }
+                if (value < 0) value = 0;
                 Properties.Settings.Default.AlignmentTolerance = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
                 RaisePropertyChanged();
@@ -252,9 +246,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public bool LogError {
-            get {
-                return Properties.Settings.Default.LogError;
-            }
+            get => Properties.Settings.Default.LogError;
             set {
                 Properties.Settings.Default.LogError = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -263,9 +255,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public bool StopTrackingWhenDone {
-            get {
-                return Properties.Settings.Default.StopTrackingWhenDone;
-            }
+            get => Properties.Settings.Default.StopTrackingWhenDone;
             set {
                 Properties.Settings.Default.StopTrackingWhenDone = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -274,9 +264,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         public bool AutoPause {
-            get {
-                return Properties.Settings.Default.AutoPause;
-            }
+            get => Properties.Settings.Default.AutoPause;
             set {
                 Properties.Settings.Default.AutoPause = value;
                 CoreUtil.SaveSettings(Properties.Settings.Default);
@@ -288,6 +276,5 @@ namespace NINA.Plugins.PolarAlignment {
         protected void RaisePropertyChanged([CallerMemberName] string propertyName = null) {
             this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
-
     }
 }

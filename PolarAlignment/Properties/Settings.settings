@@ -128,5 +128,31 @@
     <Setting Name="OAPAYHoldPercent" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">50</Value>
     </Setting>
+
+    <!-- ── OAT (OpenAstroExplorer / LX200 OpenAstroTech INDI driver) ──────── -->
+    <Setting Name="OATDeviceName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">LX200 OpenAstroTech</Value>
+    </Setting>
+    <Setting Name="OATDoAutomatedAdjustments" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="OATSettleTime" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">2</Value>
+    </Setting>
+    <Setting Name="OATXGearRatio" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="OATYGearRatio" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="OATXBacklashCompensation" Type="System.Single" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="OATReverseAzimuth" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="OATReverseAltitude" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

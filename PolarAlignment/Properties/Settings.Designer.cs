@@ -9,20 +9,20 @@
 //------------------------------------------------------------------------------
 
 namespace NINA.Plugins.PolarAlignment.Properties {
-    
-    
+
+
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "17.13.0.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
-        
+
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
-        
+
         public static Settings Default {
             get {
                 return defaultInstance;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("3")]
@@ -34,7 +34,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["DefaultMoveRate"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
@@ -46,7 +46,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["DefaultEastDirection"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("10")]
@@ -58,7 +58,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["DefaultTargetDistance"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("10")]
@@ -70,7 +70,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["DefaultSearchRadius"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("2")]
@@ -82,7 +82,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["DefaultAltitudeOffset"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("1")]
@@ -94,7 +94,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["DefaultAzimuthOffset"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("#FFFFFF00")]
@@ -106,7 +106,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AltitudeErrorColor"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("#FF00FFFF")]
@@ -118,7 +118,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AzimuthErrorColor"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("#FFFF0000")]
@@ -130,7 +130,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["TotalErrorColor"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("#FFFF0099")]
@@ -142,7 +142,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["TargetCircleColor"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
@@ -154,7 +154,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["UpdateSettings"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("2")]
@@ -166,7 +166,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["MoveTimeoutFactor"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("#FF32CD32")]
@@ -178,7 +178,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["SuccessColor"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -190,7 +190,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["LogError"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -202,7 +202,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["RefractionAdjustment"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -226,7 +226,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AlignmentTolerance"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
@@ -238,7 +238,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["StopTrackingWhenDone"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -250,7 +250,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["UseAvalonPolarAlignmentSystem"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("2")]
@@ -262,7 +262,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AvalonXGearRatio"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("700")]
@@ -274,7 +274,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AvalonXSpeed"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("22")]
@@ -286,7 +286,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AvalonYGearRatio"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("700")]
@@ -298,7 +298,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AvalonYSpeed"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -310,7 +310,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["DoAutomatedAdjustments"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("2")]
@@ -322,7 +322,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AutomatedAdjustmentSettleTime"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("0")]
@@ -334,7 +334,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AvalonXBacklashCompensation"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -346,7 +346,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AvalonReverseAzimuth"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -358,7 +358,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["AvalonReverseAltitude"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -371,6 +371,8 @@ namespace NINA.Plugins.PolarAlignment.Properties {
             }
         }
 
+        // ── OAPA ─────────────────────────────────────────────────────────────
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
@@ -382,7 +384,7 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["UseOAPAPolarAlignmentSystem"] = value;
             }
         }
-        
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("None")]
@@ -524,6 +526,104 @@ namespace NINA.Plugins.PolarAlignment.Properties {
             }
             set {
                 this["OAPAYHoldPercent"] = value;
+            }
+        }
+
+        // ── OAT (OpenAstroExplorer / LX200 OpenAstroTech INDI driver) ─────────
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("LX200 OpenAstroTech")]
+        public string OATDeviceName {
+            get {
+                return ((string)(this["OATDeviceName"]));
+            }
+            set {
+                this["OATDeviceName"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool OATDoAutomatedAdjustments {
+            get {
+                return ((bool)(this["OATDoAutomatedAdjustments"]));
+            }
+            set {
+                this["OATDoAutomatedAdjustments"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("2")]
+        public double OATSettleTime {
+            get {
+                return ((double)(this["OATSettleTime"]));
+            }
+            set {
+                this["OATSettleTime"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public float OATXGearRatio {
+            get {
+                return ((float)(this["OATXGearRatio"]));
+            }
+            set {
+                this["OATXGearRatio"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public float OATYGearRatio {
+            get {
+                return ((float)(this["OATYGearRatio"]));
+            }
+            set {
+                this["OATYGearRatio"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public float OATXBacklashCompensation {
+            get {
+                return ((float)(this["OATXBacklashCompensation"]));
+            }
+            set {
+                this["OATXBacklashCompensation"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool OATReverseAzimuth {
+            get {
+                return ((bool)(this["OATReverseAzimuth"]));
+            }
+            set {
+                this["OATReverseAzimuth"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool OATReverseAltitude {
+            get {
+                return ((bool)(this["OATReverseAltitude"]));
+            }
+            set {
+                this["OATReverseAltitude"] = value;
             }
         }
     }

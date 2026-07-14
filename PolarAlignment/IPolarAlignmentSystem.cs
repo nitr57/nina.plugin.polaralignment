@@ -6,7 +6,8 @@ namespace NINA.Plugins.PolarAlignment {
     public enum PolarAlignmentSystemType {
         None,
         UPAS,
-        OAPA
+        OAPA,
+        OAT   // OpenAstroExplorer via INDI LX200 OpenAstroTech driver
     }
 
     public enum Axis {

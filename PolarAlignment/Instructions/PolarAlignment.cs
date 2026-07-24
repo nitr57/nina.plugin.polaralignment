@@ -599,7 +599,8 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                                         declinationSpreadArcsec: TPAPAVM.PolarErrorDetermination.DeclinationSpreadArcsec,
                                         nearEastWest: TPAPAVM.PolarErrorDetermination.CurrentCorrectionFieldNearEastWest,
                                         distanceToEastWest: TPAPAVM.PolarErrorDetermination.CurrentCorrectionFieldDistanceToEastWestDegrees
-                                    )
+                                    ),
+                                    localCTS.Token
                                 );
 
                                 Logger.Info($"Calculated Error: Az: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError}, Alt: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError}, Tot: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError}");

@@ -121,7 +121,7 @@ namespace NINA.Plugins.PolarAlignment {
         }
 
         private async Task SetReferenceStar(Point p, bool detectStar, CancellationToken token) {
-            await selectNewStarLock.WaitAsync();
+            await selectNewStarLock.WaitAsync(token);
             try {
                 if (detectStar) {
                     await DetectAndLockReferenceStar(PolarErrorDetermination.CurrentReferenceFrame,
@@ -612,7 +612,7 @@ namespace NINA.Plugins.PolarAlignment {
 
         private KeyValuePair<int, StarDetectionResult> starDetection;
         private async Task<StarDetectionResult> GetStarDetection(IRenderedImage image, IProgress<ApplicationStatus> progress, CancellationToken token) {
-            await starDetectionLock.WaitAsync();
+            await starDetectionLock.WaitAsync(token);
             try {
                 if (starDetection.Value == null || starDetection.Key != image.RawImageData.MetaData.Image.Id) {
                     var detection = new StarDetection();

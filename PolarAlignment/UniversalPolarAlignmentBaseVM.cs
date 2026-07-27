@@ -81,6 +81,13 @@ namespace NINA.Plugins.PolarAlignment {
                 upa.Dispose();
             } catch (Exception ex) {
                 Logger.Error(ex);
+            } finally {
+                // upa.Connected reflects global INDI connectivity, not this object's own
+                // disposed state — without clearing the reference, the next Connect() call's
+                // "if (upa?.Connected == true) return" guard would short-circuit on a stale,
+                // already-disposed instance and never rebuild a fresh system, silently leaving
+                // the VM's own Connected flag stuck at false.
+                upa = null;
             }
             Notification.ShowInformation($"Disconnected from {SystemName}");
         }

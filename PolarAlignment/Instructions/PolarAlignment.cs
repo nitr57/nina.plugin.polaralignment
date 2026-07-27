@@ -630,6 +630,14 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                                 }
                                 localCTS.Token.ThrowIfCancellationRequested();
                                 await TPAPAVM.MoveCloser(progress, localCTS.Token);
+
+                                if (TPAPAVM.AutomatedAdjustmentStalled) {
+                                    Logger.Error($"Automated polar alignment adjustment aborted: {TPAPAVM.AutomatedAdjustmentStallReason}");
+                                    Notification.ShowError(
+                                        $"Polar alignment automated adjustments stopped: the mount does not appear to be responding to move commands.{Environment.NewLine}" +
+                                        "Check for a mechanical end-stop, disconnected motor, or driver fault, then restart the process.");
+                                    localCTS.Cancel();
+                                }
                             } else {
                                 Logger.Warning("Skipping error publication and automated correction because the continuous estimate was unstable.");
                             }

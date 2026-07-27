@@ -23,10 +23,23 @@ namespace NINA.Plugins.PolarAlignment {
         /// </summary>
         private const double MinimumMoveMagnitude = 0.05;
         /// <summary>
-        /// Maximum correction magnitude issued in a single solve or move cycle.
-        /// Large residuals are intentionally corrected over multiple iterations.
+        /// Absolute emergency ceiling on any single move, regardless of what the learned
+        /// response model predicts. This exists purely as a backstop against a badly wrong or
+        /// still-unconverged model (e.g. a near-singular fit early on) proposing an absurd
+        /// command — it is intentionally far above any move that should occur in normal
+        /// operation.
+        ///
+        /// The REAL, proportional limiting factor is the 0.5/0.25/0.125 damping already applied
+        /// to the raw least-squares solution in <see cref="CreateCorrectivePlan"/>: since that
+        /// raw solution already predicts (given an accurate model) a command that fully zeroes
+        /// the current residual, a candidate at 50% of it is inherently proportional to the
+        /// current error — large errors produce large (but damped) corrections, small errors
+        /// produce small ones. A low fixed ceiling here (previously 5.0, ≈5 arcmin at gear ratio
+        /// 1) defeated that proportionality and forced many more solve/move cycles than
+        /// necessary for large initial residuals, even though hardware like OAT can safely move
+        /// several degrees in one command.
         /// </summary>
-        private const double MaximumMoveMagnitude = 5.0;
+        private const double MaximumMoveMagnitude = 240.0; // ≈4° at gear ratio 1.0 — emergency backstop only
         /// <summary>
         /// Small damping term used as a numerical floor and as regularization when
         /// inverting the local response model.
@@ -47,12 +60,41 @@ namespace NINA.Plugins.PolarAlignment {
         /// </summary>
         private const int MaxSamples = 12;
 
+        /// <summary>
+        /// Below this measured total-error change (in degrees), a commanded move that was
+        /// reported as electrically/protocol-successful is treated as having produced no
+        /// detectable physical motion. This is deliberately small — well under any sane
+        /// single-axis move at any reasonable gear ratio — so it only fires on genuine
+        /// non-movement, not on a merely small correction.
+        /// </summary>
+        private const double StallMovementThresholdDegrees = 0.0015; // ≈0.1 arcmin
+
+        /// <summary>
+        /// Number of consecutive "commanded a real move but measured essentially zero change"
+        /// events required before declaring a stall. Requiring several in a row avoids false
+        /// positives from a single noisy/failed plate solve.
+        /// </summary>
+        private const int MaxConsecutiveStalls = 3;
+
         private readonly Queue<ResponseSample> samples = new Queue<ResponseSample>();
         private AutomatedAdjustmentObservation currentObservation;
         private PendingPlan pendingPlan;
         private bool hasObservation;
+        private int consecutiveStalls;
 
         public int SampleCount => samples.Count;
+
+        /// <summary>
+        /// True once several consecutive commanded moves have produced no measurable change in
+        /// the observed polar error — the physical signature of a motor stuck at an end-stop (or
+        /// otherwise mechanically unable to move), even though the driver/INDI layer reported the
+        /// command as having completed successfully. Callers should stop issuing further moves
+        /// when this is set.
+        /// </summary>
+        public bool StallDetected { get; private set; }
+
+        /// <summary>Human-readable explanation of the last detected stall, for logging/notification.</summary>
+        public string StallReason { get; private set; }
 
         /// <summary>
         /// Gets whether the current sample set is rich enough and well-conditioned enough
@@ -70,6 +112,9 @@ namespace NINA.Plugins.PolarAlignment {
             currentObservation = null;
             pendingPlan = null;
             hasObservation = false;
+            consecutiveStalls = 0;
+            StallDetected = false;
+            StallReason = null;
         }
 
         /// <summary>
@@ -88,6 +133,8 @@ namespace NINA.Plugins.PolarAlignment {
                                              pendingPlan.Plan.YMagnitude,
                                              deltaAzimuth,
                                              deltaAltitude));
+
+                CheckForStall(pendingPlan.Plan, Math.Sqrt(deltaAzimuth * deltaAzimuth + deltaAltitude * deltaAltitude));
 
                 if (!pendingPlan.Plan.IsProbe && latestObservation.TotalErrorDegrees > pendingPlan.BeforeMoveObservation.TotalErrorDegrees * ModelResetWorseningFactor) {
                     samples.Clear();
@@ -108,6 +155,10 @@ namespace NINA.Plugins.PolarAlignment {
         /// move that is predicted to reduce the residual error norm.
         /// </summary>
         public AutomatedAdjustmentPlan CreatePlan() {
+            if (StallDetected) {
+                return AutomatedAdjustmentPlan.Skip(StallReason ?? "Mount stall detected — automated adjustments paused.");
+            }
+
             if (!hasObservation) {
                 return AutomatedAdjustmentPlan.Skip("No continuous error measurement is available yet.");
             }
@@ -140,6 +191,35 @@ namespace NINA.Plugins.PolarAlignment {
         /// </summary>
         public void NoteFailedExecution() {
             pendingPlan = null;
+        }
+
+        /// <summary>
+        /// Compares a commanded move against the measured error change it produced. A real move
+        /// (above the deadband) that yields essentially zero measured change, repeated several
+        /// times in a row, is the observable signature of a motor that physically cannot move
+        /// (end-stop reached, mechanical jam, disconnected coupler, etc.) — the driver can report
+        /// the command as "done" without the mount having actually moved.
+        /// </summary>
+        private void CheckForStall(AutomatedAdjustmentPlan commandedPlan, double measuredChangeDegrees) {
+            var commandedMagnitude = Math.Sqrt(commandedPlan.XMagnitude * commandedPlan.XMagnitude
+                                               + commandedPlan.YMagnitude * commandedPlan.YMagnitude);
+
+            if (commandedMagnitude < MinimumMoveMagnitude) {
+                // Command was itself negligible — not a meaningful test of whether the mount moves.
+                return;
+            }
+
+            if (measuredChangeDegrees < StallMovementThresholdDegrees) {
+                consecutiveStalls++;
+                if (consecutiveStalls >= MaxConsecutiveStalls) {
+                    StallDetected = true;
+                    StallReason = $"Commanded {commandedMagnitude:F2} units but measured error changed by only " +
+                                  $"{measuredChangeDegrees * 60.0:F3}' over {consecutiveStalls} consecutive moves — " +
+                                  "the mount does not appear to be responding (possible end-stop or mechanical stall).";
+                }
+            } else {
+                consecutiveStalls = 0;
+            }
         }
 
         private void AddSample(ResponseSample sample) {

@@ -67,6 +67,12 @@ namespace NINA.Plugins.PolarAlignment {
         private readonly AutomatedAdjustmentController automatedAdjustmentController = new AutomatedAdjustmentController();
         private bool lastContinuousEstimateStable = true;
 
+        /// <summary>True once the automated-adjustment controller has detected that commanded
+        /// moves are not producing any measurable change in the polar error (mount stalled /
+        /// at an end-stop). The correction loop should stop issuing further moves and abort.</summary>
+        public bool AutomatedAdjustmentStalled => automatedAdjustmentController.StallDetected;
+        public string AutomatedAdjustmentStallReason => automatedAdjustmentController.StallReason;
+
         public void ActivateFirstStep() {
             automatedAdjustmentController.Reset();
             lastContinuousEstimateStable = true;
@@ -285,6 +291,20 @@ namespace NINA.Plugins.PolarAlignment {
         public async Task MoveCloser(IProgress<ApplicationStatus> progress, CancellationToken token) {
             var activeSystem = ActiveAlignmentSystemVM;
             if (activeSystem == null || !activeSystem.DoAutomatedAdjustments) { return; }
+
+            // Auto-connect the alignment system if it has never been connected.
+            // The NINA desktop UI has a Connect button, but Touch'N'Stars does not,
+            // so we connect lazily here on first use.
+            if (!activeSystem.Connected) {
+                progress?.Report(new ApplicationStatus() { Status = "Connecting to alignment system..." });
+                await activeSystem.Connect();
+                if (!activeSystem.Connected) {
+                    progress?.Report(new ApplicationStatus() { Status = "Failed to connect to alignment system — check NINA log." });
+                    Logger.Error("[TPPA] Auto-connect to alignment system failed.");
+                    return;
+                }
+                Logger.Info("[TPPA] Alignment system auto-connected successfully.");
+            }
 
             var useContinuousErrorEstimator = UseContinuousErrorEstimator;
 

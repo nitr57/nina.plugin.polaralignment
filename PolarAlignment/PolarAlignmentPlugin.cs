@@ -15,19 +15,33 @@ using NINA.Plugin;
 using NINA.Plugin.Interfaces;
 using NINA.Plugins.PolarAlignment.Avalon;
 using NINA.Plugins.PolarAlignment.OAPA;
+using NINA.Plugins.PolarAlignment.OAT;
 using NINA.Profile;
 using NINA.Profile.Interfaces;
 
 namespace NINA.Plugins.PolarAlignment {
     [Export(typeof(IPluginManifest))]
     public class PolarAlignmentPlugin : PluginBase, INotifyPropertyChanged {
+        /// <summary>
+        /// Live singleton instance, cached at construction time so that other components
+        /// (e.g. the Touch-N-Stars REST controller) can write settings THROUGH this VM's own
+        /// property setters instead of poking Properties.Settings.Default directly via reflection.
+        /// Writing through the wrapper properties keeps NINA's own Options WPF page (and any
+        /// other live binding to this instance) in sync via RaisePropertyChanged — bypassing it
+        /// leaves stale cached values in any open WPF binding, which can later get pushed back
+        /// and silently clobber the REST-driven change.
+        /// </summary>
+        public static PolarAlignmentPlugin Instance { get; private set; }
+
         public static UniversalPolarAlignmentVM UniversalPolarAlignmentVM { get; private set; }
         public static UniversalPolarAlignmentOAPAVM UniversalPolarAlignmentOAPAVM { get; private set; }
+        public static OATAlignmentVM OATAlignmentVM { get; private set; }
 
         public static IPolarAlignmentSystemVM ActiveAlignmentSystemVM =>
             Properties.Settings.Default.SelectedPolarAlignmentSystem switch {
                 "UPAS" => UniversalPolarAlignmentVM,
                 "OAPA" => UniversalPolarAlignmentOAPAVM,
+                "OAT" => OATAlignmentVM,
                 _ => null
             };
 
@@ -43,6 +57,7 @@ namespace NINA.Plugins.PolarAlignment {
                 RaisePropertyChanged(nameof(IsSystemSelected));
                 RaisePropertyChanged(nameof(IsUPASSelected));
                 RaisePropertyChanged(nameof(IsOAPASelected));
+                RaisePropertyChanged(nameof(IsOATSelected));
                 RaisePropertyChanged(nameof(ActiveSystem));
             }
         }
@@ -50,6 +65,7 @@ namespace NINA.Plugins.PolarAlignment {
         public bool IsSystemSelected => SelectedPolarAlignmentSystem != PolarAlignmentSystemType.None;
         public bool IsUPASSelected => SelectedPolarAlignmentSystem == PolarAlignmentSystemType.UPAS;
         public bool IsOAPASelected => SelectedPolarAlignmentSystem == PolarAlignmentSystemType.OAPA;
+        public bool IsOATSelected => SelectedPolarAlignmentSystem == PolarAlignmentSystemType.OAT;
 
         /// <summary>Instance wrapper for XAML binding with PropertyChanged support.</summary>
         public IPolarAlignmentSystemVM ActiveSystem => ActiveAlignmentSystemVM;
@@ -58,6 +74,7 @@ namespace NINA.Plugins.PolarAlignment {
 
         [ImportingConstructor]
         public PolarAlignmentPlugin(IProfileService profileService) {
+            Instance = this;
             if (Properties.Settings.Default.UpdateSettings) {
                 Properties.Settings.Default.Upgrade();
                 Properties.Settings.Default.UpdateSettings = false;
@@ -66,6 +83,7 @@ namespace NINA.Plugins.PolarAlignment {
             ResetSettingsCommand = new GalaSoft.MvvmLight.Command.RelayCommand(ResetSettings);
             UniversalPolarAlignmentVM = new UniversalPolarAlignmentVM(profileService);
             UniversalPolarAlignmentOAPAVM = new UniversalPolarAlignmentOAPAVM(profileService);
+            OATAlignmentVM = new OATAlignmentVM(profileService);
             PluginId = this.Identifier;
         }
 
@@ -79,6 +97,7 @@ namespace NINA.Plugins.PolarAlignment {
                     RaisePropertyChanged(null);
                     UniversalPolarAlignmentVM.RaiseAllPropertiesChanged();
                     UniversalPolarAlignmentOAPAVM.RaiseAllPropertiesChanged();
+                    OATAlignmentVM.RaiseAllPropertiesChanged();
                 }
             } catch(Exception ex) {
                 Logger.Error(ex);

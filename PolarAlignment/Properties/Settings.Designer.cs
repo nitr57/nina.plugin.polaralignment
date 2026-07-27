@@ -526,5 +526,103 @@ namespace NINA.Plugins.PolarAlignment.Properties {
                 this["OAPAYHoldPercent"] = value;
             }
         }
+
+        // ── OAT (OpenAstroExplorer / LX200 OpenAstroTech INDI driver) ─────────
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("LX200 OpenAstroTech")]
+        public string OATDeviceName {
+            get {
+                return ((string)(this["OATDeviceName"]));
+            }
+            set {
+                this["OATDeviceName"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool OATDoAutomatedAdjustments {
+            get {
+                return ((bool)(this["OATDoAutomatedAdjustments"]));
+            }
+            set {
+                this["OATDoAutomatedAdjustments"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("2")]
+        public double OATSettleTime {
+            get {
+                return ((double)(this["OATSettleTime"]));
+            }
+            set {
+                this["OATSettleTime"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public float OATXGearRatio {
+            get {
+                return ((float)(this["OATXGearRatio"]));
+            }
+            set {
+                this["OATXGearRatio"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public float OATYGearRatio {
+            get {
+                return ((float)(this["OATYGearRatio"]));
+            }
+            set {
+                this["OATYGearRatio"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public float OATXBacklashCompensation {
+            get {
+                return ((float)(this["OATXBacklashCompensation"]));
+            }
+            set {
+                this["OATXBacklashCompensation"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool OATReverseAzimuth {
+            get {
+                return ((bool)(this["OATReverseAzimuth"]));
+            }
+            set {
+                this["OATReverseAzimuth"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool OATReverseAltitude {
+            get {
+                return ((bool)(this["OATReverseAltitude"]));
+            }
+            set {
+                this["OATReverseAltitude"] = value;
+            }
+        }
     }
 }

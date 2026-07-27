@@ -576,7 +576,7 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                     var height = TPAPAVM.Image.Image.PixelHeight;
                     TPAPAVM.Center = new Point(width / 2, height / 2);
 
-                    await TPAPAVM.SelectNewReferenceStar(TPAPAVM.Center, localCTS.Token);
+                    await TPAPAVM.UseImageCenterAsReference(localCTS.Token);
 
                     var sw = Stopwatch.StartNew();
                     do {
@@ -599,7 +599,8 @@ namespace NINA.Plugins.PolarAlignment.Instructions {
                                         declinationSpreadArcsec: TPAPAVM.PolarErrorDetermination.DeclinationSpreadArcsec,
                                         nearEastWest: TPAPAVM.PolarErrorDetermination.CurrentCorrectionFieldNearEastWest,
                                         distanceToEastWest: TPAPAVM.PolarErrorDetermination.CurrentCorrectionFieldDistanceToEastWestDegrees
-                                    )
+                                    ),
+                                    localCTS.Token
                                 );
 
                                 Logger.Info($"Calculated Error: Az: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisAzimuthError}, Alt: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisAltitudeError}, Tot: {TPAPAVM.PolarErrorDetermination.CurrentMountAxisTotalError}");

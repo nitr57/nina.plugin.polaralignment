@@ -117,6 +117,16 @@ namespace NINA.Plugins.PolarAlignment.Dockables {
         public ICommand ResumeCommand { get; }
         public ICommand CancelExecuteCommand { get; }
 
+        private bool isRunning;
+
+        public bool IsRunning {
+            get => isRunning;
+            private set {
+                isRunning = value;
+                RaisePropertyChanged();
+            }
+        }
+
         public override bool IsTool { get; } = true;
 
         private bool optionsExpanded;
@@ -133,6 +143,7 @@ namespace NINA.Plugins.PolarAlignment.Dockables {
 
         public async Task<bool> Execute(IProgress<ApplicationStatus> externalProgress, CancellationToken token) {
             try {
+                IsRunning = true;
                 OptionsExpanded = false;
                 cameraMediator.RegisterCaptureBlock(this);
                 PolarAlignment.ResetProgress();
@@ -148,6 +159,7 @@ namespace NINA.Plugins.PolarAlignment.Dockables {
                 cameraMediator.ReleaseCaptureBlock(this);
                 externalProgress?.Report(GetStatus(string.Empty));
                 (PolarAlignment as Instructions.PolarAlignment).TPAPAVM = new TPAPAVM(profileService, weatherDataMediator);
+                IsRunning = false;
             }
             return false;
         }
@@ -231,11 +243,18 @@ namespace NINA.Plugins.PolarAlignment.Dockables {
                         PolarAlignment.AlignmentTolerance = alignmentTolerance;
                     }
                     //Filter
-                    if (TryGetValue<string>(message.Content, nameof(PolarAlignment.Filter), out var filterName)) {
-                        var filter = profileService.ActiveProfile.FilterWheelSettings.FilterWheelFilters.FirstOrDefault(x => x.Name == filterName);
-                        if (filter != null) {
-                            PolarAlignment.Filter = filter;
-                        }                        
+                    // A null Filter is a valid request to clear the selection (e.g. no filter wheel present),
+                    // so this checks for the property's presence rather than using TryGetValue, which treats null as "not sent".
+                    if (TryGetProperty(message.Content, nameof(PolarAlignment.Filter), out var filterValue)) {
+                        var filterName = filterValue as string;
+                        if (string.IsNullOrEmpty(filterName)) {
+                            PolarAlignment.Filter = null;
+                        } else {
+                            var filter = profileService.ActiveProfile.FilterWheelSettings.FilterWheelFilters.FirstOrDefault(x => x.Name == filterName);
+                            if (filter != null) {
+                                PolarAlignment.Filter = filter;
+                            }
+                        }
                     }
                     //ExposureTime
                     if (TryGetValue<double>(message.Content, nameof(PolarAlignment.ExposureTime), out var exposureTime)) {
@@ -268,6 +287,28 @@ namespace NINA.Plugins.PolarAlignment.Dockables {
                     executeCTS?.Cancel();
                 } catch {}
             }
+        }
+
+        private static bool TryGetProperty(object obj, string name, out object value) {
+            value = null;
+            if (obj == null || string.IsNullOrEmpty(name))
+                return false;
+
+            Type type = obj.GetType();
+
+            PropertyInfo property = type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
+            if (property != null && property.CanRead) {
+                value = property.GetValue(obj);
+                return true;
+            }
+
+            FieldInfo field = type.GetField(name, BindingFlags.Public | BindingFlags.Instance);
+            if (field != null) {
+                value = field.GetValue(obj);
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryGetValue<T>(object obj, string name, out T value) {

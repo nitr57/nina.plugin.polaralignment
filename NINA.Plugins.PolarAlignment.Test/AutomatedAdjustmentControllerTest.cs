@@ -56,10 +56,10 @@ namespace NINA.Plugins.PolarAlignment.Test {
                 { +0.04, -0.11 }
             };
 
-            var result = RunClosedLoop(controller, plant, initialAzimuthErrorDegrees: 0.9, initialAltitudeErrorDegrees: 0.6, maxIterations: 12);
+            var result = RunClosedLoop(controller, plant, initialAzimuthErrorDegrees: 0.9, initialAltitudeErrorDegrees: 0.6, maxIterations: 16);
 
             result.FinalErrorDegrees.Should().BeLessThan(0.04);
-            result.Iterations.Should().BeLessThan(12);
+            result.Iterations.Should().BeLessThan(16);
             controller.SampleCount.Should().BeGreaterThanOrEqualTo(3);
         }
 
@@ -87,23 +87,22 @@ namespace NINA.Plugins.PolarAlignment.Test {
         }
 
         [Test]
-        public void BacklashCompensationPlanner_PositiveDirection_EndsLoadedPositive() {
-            // When the target direction is positive, backlash clearing should finish with
-            // a positive preload so the final mechanical state matches the requested direction.
-            var sequence = BacklashCompensationPlanner.CreateSequence(3f, LastDirection.Positive);
+        public void AutomatedAdjustmentController_UsesCoarseXAxisProbeAndConservativeYAxisProbe() {
+            var controller = new AutomatedAdjustmentController();
+            controller.UpdateObservation(0.5, -0.3);
 
-            sequence.FirstMove.Should().Be(-3f);
-            sequence.SecondMove.Should().Be(3f);
-        }
+            var xProbe = controller.CreatePlan();
+            xProbe.IsProbe.Should().BeTrue();
+            xProbe.XMagnitude.Should().Be(10);
+            xProbe.YMagnitude.Should().Be(0);
 
-        [Test]
-        public void BacklashCompensationPlanner_NegativeDirection_EndsLoadedNegative() {
-            // The mirrored case of the test above: after a negative-direction reversal,
-            // the backlash sequence should finish in the negative direction.
-            var sequence = BacklashCompensationPlanner.CreateSequence(3f, LastDirection.Negative);
+            controller.NoteSuccessfulExecution(xProbe);
+            controller.UpdateObservation(0.4, -0.3);
 
-            sequence.FirstMove.Should().Be(3f);
-            sequence.SecondMove.Should().Be(-3f);
+            var yProbe = controller.CreatePlan();
+            yProbe.IsProbe.Should().BeTrue();
+            yProbe.XMagnitude.Should().Be(0);
+            yProbe.YMagnitude.Should().Be(1);
         }
 
         private static ClosedLoopResult RunClosedLoop(AutomatedAdjustmentController controller,

@@ -1,14 +1,46 @@
 using NINA.Core.Utility;
+using NINA.Core.Utility.Notification;
 using System;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace NINA.Plugins.PolarAlignment.OAPA {
-    public partial class UniversalPolarAlignmentOAPA : UniversalPolarAlignmentBase {
+    public partial class UniversalPolarAlignmentOAPA : UniversalPolarAlignmentBase, IOapaAlignmentController {
         protected override string SystemName => "OAPA System";
         protected override string NewLineSequence => "\n";
-        protected override int ScanReadTimeout => 300;
-        protected override int ScanWriteTimeout => 300;
+        // ESP32 (CH340) auto-resets when the host opens the port: needs ~1.5s to finish booting
+        // and emit its banner before answering. Two probes give the firmware a second chance if
+        // the first reply was the boot text instead of the GRBL status frame.
+        protected override int ScanReadTimeout => 1500;
+        protected override int ScanWriteTimeout => 500;
         protected override bool ClearBufferOnConnect => true;
+        protected override int PostOpenDelayMs => 1500;
+        protected override int ConnectRetryAttempts => 2;
+
+        // A USB-serial adapter next to a stalling stepper can re-enumerate mid-session: the
+        // link is reopened instead of failing the move.
+        protected override bool RecoversLink => true;
+
+        // The alignment instruction builds a new system object on every run while the
+        // platform keeps its position, so the side of its play each axis rests on is kept.
+        protected override bool RemembersEngagementAcrossInstances => true;
+
+        // Try the last successfully matched port first, so a returning user skips the full
+        // COM-port scan (~1.5s + ~3s of retries per dead port) and connects in a single probe.
+        protected override string PreferredPortName => Properties.Settings.Default.OAPALastPort;
+
+        protected override void OnPortMatched(string portName) {
+            if (Properties.Settings.Default.OAPALastPort != portName) {
+                Properties.Settings.Default.OAPALastPort = portName;
+                CoreUtil.SaveSettings(Properties.Settings.Default);
+            }
+        }
+
+        // The shared check on the firmware number is off: it runs before $P? is read, and a
+        // third-party device numbers its firmware its own way. Whether a device is warned about
+        // follows the protocol it reports (ProtocolWarning), right after connecting.
+        protected override string MinimumFirmwareVersion => null;
+        protected override string FirmwareReferenceUrl => "https://github.com/michelebergo/oapa-firmware";
 
         private float xGearRatio = Properties.Settings.Default.OAPAXGearRatio;
         private float yGearRatio = Properties.Settings.Default.OAPAYGearRatio;
@@ -16,45 +48,325 @@ namespace NINA.Plugins.PolarAlignment.OAPA {
         public override float XGearRatio { get => xGearRatio; set => xGearRatio = value; }
         public override float YGearRatio { get => yGearRatio; set => yGearRatio = value; }
 
+        // Ratio-agnostic motion completion overrides (OAPA-only, Avalon unaffected).
+        // Tolerance is expressed in physical units (arcmin) and converted to steps via the
+        // current gear ratio, so the same precision target works for any user's hardware.
+        // ANGULAR_TOLERANCE_ARCMIN sets the "close enough" criterion in sky units.
+        private const float ANGULAR_TOLERANCE_ARCMIN = 0.01f;
+        // Stuck detection allows for one-step jitter at any ratio.
+        protected override float CompletionToleranceSteps(float gearRatio) {
+            // Always allow at least 1 step of slack; below 1 step is unreachable on any motor.
+            var ratio = Math.Abs(gearRatio);
+            if (ratio < 1e-6f) return 1.0f;
+            return Math.Max(1.0f, ANGULAR_TOLERANCE_ARCMIN * ratio);
+        }
+        protected override float StuckDeltaSteps(float gearRatio) {
+            // "Not moving" means change of less than 1 step between polls.
+            return 1.0f;
+        }
+        protected override float RoundTarget(float target) {
+            // Motor positions are integer steps; comparing against a fractional target
+            // would never match, causing false timeouts.
+            return (float)Math.Round(target);
+        }
+
         protected override Regex GetStatusRegex() => StatusRegex();
 
-        public void SetXRunCurrent(int currentMA) {
+        // The firmware only parses the type-first grammar ("CX600", "HY50"); the axis-first
+        // form previously sent here fell into its unknown-command branch and was silently
+        // ignored, leaving the drivers on their 600 mA / 50% firmware defaults.
+        public UniversalPolarAlignmentOAPA() : base() {
+            ApplyStoredDriverConfiguration();
+            ReadProtocolVersion();
+            ReadMoveCapLimit();
+            ApplyControllerParameters();
+        }
+
+        // Talks to an already-open link: same post-connect behavior as the scanning constructor
+        // (status probe in the base, then the driver-configuration push), no COM scan.
+        protected UniversalPolarAlignmentOAPA(ISerialLink link) : base(link) {
+            ApplyStoredDriverConfiguration();
+            ReadProtocolVersion();
+            ReadMoveCapLimit();
+            ApplyControllerParameters();
+        }
+
+        /// <summary>
+        /// Connects over WiFi instead of scanning the COM ports: "host" or "host:port"
+        /// (default port 2323, firmware 1.3.0+). From here on the controller behaves exactly
+        /// as on USB.
+        /// </summary>
+        public static UniversalPolarAlignmentOAPA ConnectOverWifi(string address) {
+            var link = OapaTcpLink.Connect(address);
             try {
-                Port.WriteLine($"XC{currentMA}");
-                Port.ReadLine();
-            } catch (Exception ex) {
-                Logger.Error($"Failed to set X run current: {ex.Message}");
+                var system = new UniversalPolarAlignmentOAPA(link);
+                Logger.Info($"Found OAPA System over WiFi at {link.Address}");
+                return system;
+            } catch {
+                link.Dispose();
+                throw;
             }
+        }
+
+        // Driver settings are volatile on the controller (lost on power cycle), so the
+        // persisted values are pushed once per connection instead of only on field edits.
+        private void ApplyStoredDriverConfiguration() {
+            OapaSettingsMigration.EnsureCurrent();
+            var settings = Properties.Settings.Default;
+            foreach (var command in OapaDriverCommands.StartupBatch(
+                settings.OAPAXRunCurrent, settings.OAPAXHoldPercent,
+                settings.OAPAYRunCurrent, settings.OAPAYHoldPercent,
+                settings.OAPAXMicrosteps, settings.OAPAYMicrosteps)) {
+                SendDriverCommand(command, "apply stored driver configuration");
+            }
+
+            // The motion parameters are not driver commands, so nothing else records them.
+            // Logging them here makes a support log self-sufficient: the $J= step counts
+            // that follow can be read back as arcminutes without guessing the ratio.
+            Logger.Info(OapaParameterSummary.ForAxis("X (Azimuth)",
+                settings.OAPAXGearRatio, settings.OAPAXBacklashCompensation,
+                settings.OAPAXBacklashMode, settings.OAPAXSpeed,
+                NegativeOrSame(settings.OAPAXBacklashCompensationNegative, settings.OAPAXBacklashCompensation),
+                settings.OAPAXMicrosteps));
+            Logger.Info(OapaParameterSummary.ForAxis("Y (Altitude)",
+                settings.OAPAYGearRatio, settings.OAPAYBacklashCompensation,
+                settings.OAPAYBacklashMode, settings.OAPAYSpeed,
+                NegativeOrSame(settings.OAPAYBacklashCompensationNegative, settings.OAPAYBacklashCompensation),
+                settings.OAPAYMicrosteps));
+        }
+
+        /// <summary>The OAPA firmware that reports the protocol version; older firmware is named at connection.</summary>
+        public const string AlignmentFirmwareVersion = "1.3.3";
+
+        /// <summary>The protocol version (PROTOCOL.md in oapa-firmware) a device must report to be driven for alignment.</summary>
+        public const int AlignmentProtocolVersion = 1;
+
+        /// <summary>
+        /// The protocol version the device reports ($P?), 0 when it does not. What a device can
+        /// do is decided by this, not by a firmware version, so any device can implement the
+        /// protocol.
+        /// </summary>
+        public int ProtocolVersion { get; private set; }
+
+        public bool RunsAlignment => ProtocolVersion >= AlignmentProtocolVersion;
+
+        /// <summary>
+        /// What the user is told about a device that cannot be driven for alignment, or null when
+        /// it can. Any version of any firmware is fine once the device reports the protocol.
+        /// </summary>
+        internal static string ProtocolWarning(int protocolVersion) => protocolVersion >= AlignmentProtocolVersion
+            ? null
+            : $"the controller does not report the OAPA protocol, so nothing aligns; hand moves work. An OAPA board needs firmware {AlignmentFirmwareVersion} or later.";
+
+        /// <summary>
+        /// The version from "&lt;P|protocol:1|&gt;"; anything else - firmware before 1.3.3
+        /// acknowledges the unknown $P? with "ok" - is 0.
+        /// </summary>
+        internal static int ParseProtocolVersion(string reply) {
+            return OapaControllerStatus.Parse(reply, "P").TryGetValue("protocol", out var text)
+                && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var version)
+                ? version
+                : 0;
+        }
+
+        private void ReadProtocolVersion() {
+            try {
+                ProtocolVersion = ParseProtocolVersion(ExecuteWireCommand("$P?")?.Trim());
+                Logger.Info($"OAPA System firmware version: {FirmwareVersion ?? "not reported"}, protocol version {ProtocolVersion}");
+                var warning = ProtocolWarning(ProtocolVersion);
+                if (warning != null) {
+                    Logger.Warning($"OAPA System: {warning} The reference firmware is available at {FirmwareReferenceUrl}");
+                    Notification.ShowWarning($"OAPA System: {warning}");
+                }
+            } catch (Exception ex) {
+                Logger.Error($"OAPA controller: reading the protocol version failed: {ex.Message}");
+            }
+        }
+
+        public string ForwardError(double azimuthArcmin, double altitudeArcmin) =>
+            ExecuteWireCommand(string.Format(CultureInfo.InvariantCulture, "$E={0:F3},{1:F3}", azimuthArcmin, altitudeArcmin))?.Trim();
+
+        private double? sentTolerance;
+
+        /// <summary>
+        /// The running instruction's tolerance, sent when it differs from the last one sent, so
+        /// the controller and TPPA finish at the same error. A tolerance of 0 (none) leaves the
+        /// controller's own. A send that fails is retried with the next reading.
+        /// </summary>
+        public void SyncTolerance(double arcmin) {
+            if (arcmin <= 0 || sentTolerance == arcmin) {
+                return;
+            }
+            try {
+                var response = ExecuteWireCommand(string.Format(CultureInfo.InvariantCulture, "$T={0}", arcmin));
+                sentTolerance = arcmin;
+                Logger.Info($"OAPA controller: tolerance {arcmin}' sent (response: {response?.Trim()})");
+            } catch (Exception ex) {
+                Logger.Error($"OAPA controller: sending the tolerance failed: {ex.Message}");
+            }
+        }
+
+        public string StopAlignment() => ExecuteWireCommand("$A=0")?.Trim();
+
+        public string AlignmentStatus() => ExecuteWireCommand("$L?")?.Trim();
+
+        public string RequestCalibration() => ExecuteWireCommand("$C=1")?.Trim();
+
+        public string ControllerCalibrationStatus() => ExecuteWireCommand("$K?")?.Trim();
+
+        public string RequestCalibrationOnly() => ExecuteWireCommand("$C=2")?.Trim();
+
+        public string StopCalibration() => ExecuteWireCommand("$C=0")?.Trim();
+
+        public string BoardEvent(uint afterSequence) =>
+            ExecuteWireCommand(string.Format(CultureInfo.InvariantCulture, "$G={0}", afterSequence))?.Trim();
+
+        /// <summary>
+        /// What the controller needs to run the alignment the way this plugin would: the steps
+        /// per arcminute, each axis' backlash and mode, TPPA's tolerance, so both stop at the
+        /// same error, and the largest single correction. Volatile on the controller like the driver settings, so pushed on
+        /// every connection. Skipped on firmware that does not run the alignment.
+        ///
+        /// The factors are sent only when they were measured or typed in: factory defaults
+        /// would only mislead the controller, which calibrates by itself when it has none.
+        /// </summary>
+        internal static string[] ControllerParameterCommands(Properties.Settings settings, float moveCapLimit = LegacyMoveCapLimit) {
+            var c = CultureInfo.InvariantCulture;
+            string Backlash(char axis, string mode, float positive, float negativeOrUnset) {
+                var letter = mode switch { "Off" => 'O', "Soft" => 'S', "Unidirectional" => 'U', _ => 'F' };
+                return string.Format(c, "$B={0},{1},{2},{3}", axis, letter, positive, NegativeOrSame(negativeOrUnset, positive));
+            }
+            var commands = new System.Collections.Generic.List<string>();
+            if (settings.OAPAXGearRatioSource != nameof(OapaParameterSource.Default)
+                && settings.OAPAYGearRatioSource != nameof(OapaParameterSource.Default)) {
+                commands.Add(string.Format(c, "$F={0},{1}", settings.OAPAXGearRatio, settings.OAPAYGearRatio));
+            }
+            commands.AddRange(new[] {
+                Backlash('X', settings.OAPAXBacklashMode, settings.OAPAXBacklashCompensation, settings.OAPAXBacklashCompensationNegative),
+                Backlash('Y', settings.OAPAYBacklashMode, settings.OAPAYBacklashCompensation, settings.OAPAYBacklashCompensationNegative),
+                string.Format(c, "$T={0}", settings.AlignmentTolerance),
+                string.Format(c, "$M={0}", Math.Clamp(settings.OAPAMoveCap, 1f, moveCapLimit)),
+            });
+            return commands.ToArray();
+        }
+
+        internal void ApplyControllerParameters() {
+            if (!RunsAlignment) {
+                return;
+            }
+            var stored = Properties.Settings.Default.OAPAMoveCap;
+            if (stored > MoveCapLimit) {
+                Logger.Info($"OAPA controller: the move cap of {stored}' is above the {MoveCapLimit}' this controller accepts; {MoveCapLimit}' is sent");
+            }
+            foreach (var command in ControllerParameterCommands(Properties.Settings.Default, MoveCapLimit)) {
+                SendDriverCommand(command, "push alignment parameters");
+            }
+        }
+
+        /// <summary>
+        /// The largest move cap the panel takes, in arcminutes. The controller sets its own limit
+        /// and reports it ($M?, firmware 1.3.2+); this one only leaves room for it to grow
+        /// without a plugin release.
+        /// </summary>
+        public const float PluginMoveCapLimit = 300f;
+
+        /// <summary>The limit of firmware that cannot report one (1.3.0, 1.3.1).</summary>
+        public const float LegacyMoveCapLimit = 120f;
+
+        /// <summary>Above this the panel asks before taking a move cap: a correction that large is only safe on a platform that can travel that far.</summary>
+        public const float MoveCapWarnAbove = 120f;
+
+        /// <summary>The largest move cap the connected controller accepts, in arcminutes.</summary>
+        public float MoveCapLimit { get; private set; } = LegacyMoveCapLimit;
+
+        /// <summary>
+        /// The controller's own limit from "&lt;M|max:180|&gt;", within the panel's; anything else -
+        /// firmware before 1.3.2 acknowledges the unknown $M? with "ok" - is the older 120'.
+        /// </summary>
+        internal static float ParseMoveCapLimit(string reply) {
+            return OapaControllerStatus.Parse(reply, "M").TryGetValue("max", out var text)
+                && float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var limit) && limit >= 1f
+                ? Math.Min(limit, PluginMoveCapLimit)
+                : LegacyMoveCapLimit;
+        }
+
+        private void ReadMoveCapLimit() {
+            if (!RunsAlignment) {
+                return;
+            }
+            try {
+                MoveCapLimit = ParseMoveCapLimit(ExecuteWireCommand("$M?")?.Trim());
+                Logger.Info($"OAPA controller: move cap up to {MoveCapLimit}'");
+            } catch (Exception ex) {
+                Logger.Error($"OAPA controller: reading the move cap limit failed, {LegacyMoveCapLimit}' assumed: {ex.Message}");
+            }
+        }
+
+        /// <summary>A stored value below zero means "never set": the axis is symmetric.</summary>
+        private static float NegativeOrSame(float stored, float positive) {
+            return stored < 0f ? positive : stored;
+        }
+
+        private void SendDriverCommand(string command, string what) {
+            try {
+                var response = ExecuteWireCommand(command);
+                Logger.Info($"Driver config: {what} -> {command} (response: {response?.Trim()})");
+            } catch (Exception ex) {
+                Logger.Error($"Failed to {what} ({command}): {ex.Message}");
+            }
+        }
+
+        // "!" decelerates both axes to a halt (firmware 1.2.1+); older firmware
+        // replies a single "error" line and ignores it, so sending is always safe. The wire lock lets
+        // this land between the status polls of a move in progress; the move's wait
+        // loop then sees Idle short of target and exits gracefully.
+        public override bool SupportsStop => true;
+
+        public override void RequestStop() => TryRequestStop();
+
+        /// <summary>
+        /// Sends the halt and says whether it got through, which the shared signature cannot.
+        ///
+        /// A stop that does not reach the controller used to leave a log line and nothing else:
+        /// the button was pressed, the platform kept moving, and the panel said the same thing
+        /// it says on success, which is nothing. Of every control here this is the one whose
+        /// whole purpose is to be trusted in a hurry.
+        ///
+        /// Reporting it belongs to the caller, not here: a transport that raises its own UI
+        /// notifications is the shared-base complaint one layer down.
+        /// </summary>
+        public bool TryRequestStop() {
+            try {
+                var response = ExecuteWireCommand("!");
+                Logger.Info($"Stop requested (response: {response?.Trim()})");
+                return true;
+            } catch (Exception ex) {
+                Logger.Error($"Failed to request stop: {ex.Message}");
+                return false;
+            }
+        }
+
+        public void SetXRunCurrent(int currentMA) {
+            SendDriverCommand(OapaDriverCommands.RunCurrent(Axis.XAxis, currentMA), "set X run current");
         }
 
         public void SetYRunCurrent(int currentMA) {
-            try {
-                Port.WriteLine($"YC{currentMA}");
-                Port.ReadLine();
-            } catch (Exception ex) {
-                Logger.Error($"Failed to set Y run current: {ex.Message}");
-            }
+            SendDriverCommand(OapaDriverCommands.RunCurrent(Axis.YAxis, currentMA), "set Y run current");
         }
 
         public void SetXHoldPercent(int percent) {
-            try {
-                Port.WriteLine($"XH{percent}");
-                Port.ReadLine();
-            } catch (Exception ex) {
-                Logger.Error($"Failed to set X hold percent: {ex.Message}");
-            }
+            SendDriverCommand(OapaDriverCommands.HoldPercent(Axis.XAxis, percent), "set X hold percent");
         }
 
         public void SetYHoldPercent(int percent) {
-            try {
-                Port.WriteLine($"YH{percent}");
-                Port.ReadLine();
-            } catch (Exception ex) {
-                Logger.Error($"Failed to set Y hold percent: {ex.Message}");
-            }
+            SendDriverCommand(OapaDriverCommands.HoldPercent(Axis.YAxis, percent), "set Y hold percent");
         }
 
-        [GeneratedRegex(@"<(?<status>\w+)\|MPos:(?<x>[+-]?\d+(\.\d+)?),(?<y>[+-]?\d+(\.\d+)?),(?<z>[+-]?\d+(\.\d+)?)(?:\|T:(?<target>[+-]?\d+),R:(?<running>[01]),E:(?<endstop>[01]),S:(?<speed>[+-]?\d+(\.\d+)?))?\|>")]
+        public void SetMicrosteps(Axis axis, int microsteps) {
+            SendDriverCommand(OapaDriverCommands.Microsteps(axis, microsteps), $"set {axis} microsteps");
+        }
+
+        [GeneratedRegex(@"<(?<status>\w+)\|MPos:(?<x>[+-]?\d+(\.\d+)?),(?<y>[+-]?\d+(\.\d+)?),(?<z>[+-]?\d+(\.\d+)?)(?:\|T:(?<target>[+-]?\d+),R:(?<running>[01]),E:(?<endstop>[01]),S:(?<speed>[+-]?\d+(\.\d+)?))?(?:\|V:(?<version>[^|<>]+))?\|>")]
         private static partial Regex StatusRegex();
     }
 }

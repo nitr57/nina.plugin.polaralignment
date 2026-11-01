@@ -1,5 +1,36 @@
 # Changelog
 
+## Version 2.2.8.0
+
+- UPAS: Fixed automatic alignment getting stuck on large azimuth errors while repeatedly adjusting altitude, including when altitude was already close to alignment.
+- UPAS: Improved fine adjustments near the alignment tolerance and reduced unnecessary probing of an already aligned axis.
+- External controllers can now be selected from the "Polar Alignment System" list. Available controllers appear automatically and are removed when they disconnect.
+- TPPA waits for the selected controller and its hardware to be ready before taking the three reference measurements. A disconnected or unresponsive controller now ends the alignment with an error.
+- Fixed pause and resume getting stuck while waiting for an external controller. External alignments now respect the "Auto pause" setting.
+- External alignments now require two consecutive measurements within the alignment tolerance before completing.
+- Improved support for multiple external controllers: the list keeps a stable order and a running alignment stays with its selected controller.
+- Controller availability notifications now close automatically, and the status bar shows when TPPA is waiting for the controller or its hardware.
+- Corrected the adjustment settings shown when an external controller is selected.
+- Added support for external polar alignment controller plugins, including MLAstro RPA, through N.I.N.A.'s message broker.
+- External alignment supports pause, resume, stop and settling between measurements. Pausing or stopping prevents pending adjustment moves from starting.
+- The alignment panel keeps the final error values visible until the next run starts.
+
+## Version 2.2.7.0
+
+- OAPA: Added controller-managed automatic alignment for devices that support the OAPA protocol. OAPA boards require reference firmware 1.3.3 or later for automatic alignment; manual moves remain available on older firmware.
+- OAPA: Added automatic calibration of both axes' movement scale and backlash. Calibration can use an active alignment's measurements or capture its own frames, and the results are saved in the OAPA settings.
+- OAPA: Movement calibration factors can also be calculated from the gear ratio, motor steps per revolution and microstepping.
+- OAPA: Added WiFi connections alongside USB.
+- OAPA: Added a directional control pad with selectable move sizes and a STOP button for both axes.
+- OAPA: Added "Set Home" and "Go Home" for the current connection session.
+- OAPA: Added separate backlash modes and microstepping settings for each axis. Calibrated movement speeds are shown in arcminutes per second.
+- OAPA: The maximum correction size now follows the connected controller's limit. Values above 120 arcminutes require confirmation.
+- OAPA: The control panel now shows the latest azimuth, altitude and total alignment error, plus the connected controller's firmware version.
+- OAPA: Controller diagnostic messages are included in the N.I.N.A. log with firmware 1.3.1 or later.
+- OAPA: Improved compatibility with firmware 1.2.2, connection to boards that restart over USB and recovery from serial disconnections.
+- OAPA: Fixed calibration waiting indefinitely when started immediately after an alignment ends.
+- OAPA: Imaging pauses while the controller moves the axes and resumes when the move finishes.
+
 ## Version 2.2.6.7
 - Fixed UPAS azimuth backlash compensation.
 

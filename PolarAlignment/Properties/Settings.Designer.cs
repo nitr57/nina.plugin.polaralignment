@@ -395,6 +395,22 @@ namespace NINA.Plugins.PolarAlignment.Properties {
             }
         }
 
+        /// <summary>
+        /// Broker identity (<see cref="NINA.Plugin.Interfaces.IMessage.SenderId"/>) of the external controller the
+        /// operator selected as the alignment system. Empty while no controller is selected.
+        /// </summary>
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SelectedBridgeControllerId {
+            get {
+                return ((string)(this["SelectedBridgeControllerId"]));
+            }
+            set {
+                this["SelectedBridgeControllerId"] = value;
+            }
+        }
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("1")]
@@ -452,6 +468,198 @@ namespace NINA.Plugins.PolarAlignment.Properties {
             }
             set {
                 this["OAPAXBacklashCompensation"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public float OAPAYBacklashCompensation {
+            get {
+                return ((float)(this["OAPAYBacklashCompensation"]));
+            }
+            set {
+                this["OAPAYBacklashCompensation"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Default")]
+        public string OAPAXGearRatioSource {
+            get {
+                return ((string)(this["OAPAXGearRatioSource"]));
+            }
+            set {
+                this["OAPAXGearRatioSource"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Default")]
+        public string OAPAYGearRatioSource {
+            get {
+                return ((string)(this["OAPAYGearRatioSource"]));
+            }
+            set {
+                this["OAPAYGearRatioSource"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Default")]
+        public string OAPAXBacklashSource {
+            get {
+                return ((string)(this["OAPAXBacklashSource"]));
+            }
+            set {
+                this["OAPAXBacklashSource"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Default")]
+        public string OAPAYBacklashSource {
+            get {
+                return ((string)(this["OAPAYBacklashSource"]));
+            }
+            set {
+                this["OAPAYBacklashSource"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string OAPALastPort {
+            get {
+                return ((string)(this["OAPALastPort"]));
+            }
+            set {
+                this["OAPALastPort"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("USB")]
+        public string OAPAConnection {
+            get {
+                return ((string)(this["OAPAConnection"]));
+            }
+            set {
+                this["OAPAConnection"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string OAPAWifiAddress {
+            get {
+                return ((string)(this["OAPAWifiAddress"]));
+            }
+            set {
+                this["OAPAWifiAddress"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool OAPAControllerAligns {
+            get {
+                return ((bool)(this["OAPAControllerAligns"]));
+            }
+            set {
+                this["OAPAControllerAligns"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Steps/arcmin")]
+        public string OAPAXFactorMode {
+            get {
+                return ((string)(this["OAPAXFactorMode"]));
+            }
+            set {
+                this["OAPAXFactorMode"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("30")]
+        public float OAPAMoveCap {
+            get {
+                return ((float)(this["OAPAMoveCap"]));
+            }
+            set {
+                this["OAPAMoveCap"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public float OAPAXMechanicalRatio {
+            get {
+                return ((float)(this["OAPAXMechanicalRatio"]));
+            }
+            set {
+                this["OAPAXMechanicalRatio"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("200")]
+        public int OAPAXMotorStepsPerRev {
+            get {
+                return ((int)(this["OAPAXMotorStepsPerRev"]));
+            }
+            set {
+                this["OAPAXMotorStepsPerRev"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Steps/arcmin")]
+        public string OAPAYFactorMode {
+            get {
+                return ((string)(this["OAPAYFactorMode"]));
+            }
+            set {
+                this["OAPAYFactorMode"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public float OAPAYMechanicalRatio {
+            get {
+                return ((float)(this["OAPAYMechanicalRatio"]));
+            }
+            set {
+                this["OAPAYMechanicalRatio"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("200")]
+        public int OAPAYMotorStepsPerRev {
+            get {
+                return ((int)(this["OAPAYMotorStepsPerRev"]));
+            }
+            set {
+                this["OAPAYMotorStepsPerRev"] = value;
             }
         }
 
@@ -524,6 +732,90 @@ namespace NINA.Plugins.PolarAlignment.Properties {
             }
             set {
                 this["OAPAYHoldPercent"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("16")]
+        public int OAPAXMicrosteps {
+            get {
+                return ((int)(this["OAPAXMicrosteps"]));
+            }
+            set {
+                this["OAPAXMicrosteps"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("16")]
+        public int OAPAYMicrosteps {
+            get {
+                return ((int)(this["OAPAYMicrosteps"]));
+            }
+            set {
+                this["OAPAYMicrosteps"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("-1")]
+        public float OAPAXBacklashCompensationNegative {
+            get {
+                return ((float)(this["OAPAXBacklashCompensationNegative"]));
+            }
+            set {
+                this["OAPAXBacklashCompensationNegative"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("-1")]
+        public float OAPAYBacklashCompensationNegative {
+            get {
+                return ((float)(this["OAPAYBacklashCompensationNegative"]));
+            }
+            set {
+                this["OAPAYBacklashCompensationNegative"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Full")]
+        public string OAPAXBacklashMode {
+            get {
+                return ((string)(this["OAPAXBacklashMode"]));
+            }
+            set {
+                this["OAPAXBacklashMode"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Full")]
+        public string OAPAYBacklashMode {
+            get {
+                return ((string)(this["OAPAYBacklashMode"]));
+            }
+            set {
+                this["OAPAYBacklashMode"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int OAPABacklashPairSchema {
+            get {
+                return ((int)(this["OAPABacklashPairSchema"]));
+            }
+            set {
+                this["OAPABacklashPairSchema"] = value;
             }
         }
     }
